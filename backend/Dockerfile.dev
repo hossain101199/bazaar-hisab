@@ -1,0 +1,18 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# copy package files before source — preserves layer cache when only source changes
+COPY package*.json ./
+RUN npm install
+
+# prisma.config.ts is Prisma 7.x primary config — required before generate
+COPY prisma ./prisma
+COPY prisma.config.ts ./
+RUN npm run db:generate
+
+EXPOSE 4000
+
+# src/ is volume-mounted by docker-compose — not copied here
+# startup: regenerate client → run migrations → start dev server
+CMD ["sh", "-c", "npm run db:generate && npm run db:dev -- --name auto && npm run dev"]

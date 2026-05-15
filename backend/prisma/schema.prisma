@@ -1,0 +1,88 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+// URL prisma.config.ts-এ — এখানে শুধু provider
+datasource db {
+  provider = "postgresql"
+}
+
+// SYSTEM একক: userId = null, type = SYSTEM — Admin তৈরি করেন, কেউ মুছতে পারবেন না
+// USER একক:   userId = ব্যবহারকারীর id, type = USER — নিজে তৈরি, নিজে মুছতে পারবেন
+model Unit {
+  id        Int       @id @default(autoincrement())
+  name      String
+  type      String // SYSTEM | USER
+  groupKey  String? // weight | volume | count — null হলে রূপান্তর নেই
+  baseRatio Float? // base unit-এর তুলনায় অনুপাত — null হলে রূপান্তর নেই
+  userId    Int?
+  user      User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  products  Product[]
+
+  @@unique([name, userId])
+  @@index([userId])
+}
+
+// SYSTEM পণ্য: userId = null, type = SYSTEM — Admin তৈরি, সব ব্যবহারকারী দেখতে পান
+// USER পণ্য:   userId = id, type = USER — শুধু নিজে দেখবেন
+model Product {
+  id     Int            @id @default(autoincrement())
+  name   String
+  type   String         @default("USER") // SYSTEM | USER
+  unitId Int
+  unit   Unit           @relation(fields: [unitId], references: [id])
+  userId Int?
+  user   User?          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items  PurchaseItem[]
+
+  @@unique([name, userId])
+  @@index([userId])
+}
+
+model User {
+  id            Int            @id @default(autoincrement())
+  name          String
+  email         String         @unique
+  password      String
+  role          String         @default("USER") // ADMIN | USER
+  createdAt     DateTime       @default(now())
+  products      Product[]
+  purchases     Purchase[]
+  units         Unit[]
+  refreshTokens RefreshToken[]
+}
+
+model RefreshToken {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Purchase {
+  id          Int            @id @default(autoincrement())
+  date        DateTime
+  note        String?
+  totalAmount Float          @default(0)
+  userId      Int
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items       PurchaseItem[]
+  createdAt   DateTime       @default(now())
+
+  @@index([userId])
+}
+
+model PurchaseItem {
+  id           Int      @id @default(autoincrement())
+  quantity     Float
+  totalPrice   Float
+  pricePerUnit Float // সার্ভার হিসাব: totalPrice / quantity
+  productId    Int
+  product      Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  purchaseId   Int
+  purchase     Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+}
