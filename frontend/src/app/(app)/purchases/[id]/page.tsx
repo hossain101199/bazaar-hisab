@@ -3,6 +3,8 @@
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { ErrorState } from '@/components/ui/error-state'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PurchaseForm } from '@/components/purchases/PurchaseForm'
@@ -14,34 +16,33 @@ import { format } from 'date-fns'
 import { bn } from 'date-fns/locale'
 import { ChevronLeft, Pencil, Trash2 } from 'lucide-react'
 import { useParams, useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { toast } from 'sonner'
 
 export default function PurchaseDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const purchaseId = Number(id)
   const router = useRouter()
   const queryClient = useQueryClient()
   const [mode, setMode] = useState<'view' | 'edit'>('view')
+  const [confirmOpen, setConfirmOpen] = useState(false)
 
-  const { data: purchase, isLoading: purchaseLoading, isError: purchaseError } =
+  const { data: purchase, isLoading: purchaseLoading, isError: purchaseError, refetch: refetchPurchase } =
     useQuery<Purchase>({
-      queryKey: ['purchase', id],
-      queryFn: () => purchasesService.getById(Number(id)).then(r => r.data.purchase),
+      queryKey: ['purchase', purchaseId],
+      queryFn: () => purchasesService.getById(purchaseId),
     })
 
   const { data: products = [], isLoading: productsLoading } = useQuery<Product[]>({
     queryKey: ['products'],
-    queryFn: () => productsService.list().then(r => r.data.products),
+    queryFn: () => productsService.list(),
   })
 
-  useEffect(() => {
-    if (purchaseError) toast.error('ডেটা লোড ব্যর্থ হয়েছে')
-  }, [purchaseError])
-
   const deleteMutation = useMutation({
-    mutationFn: () => purchasesService.delete(Number(id)),
+    mutationFn: () => purchasesService.delete(purchaseId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['purchases'] })
+      queryClient.invalidateQueries({ queryKey: ['summary'] })
       toast.success('বাজার মুছে ফেলা হয়েছে')
       router.replace('/purchases')
     },
@@ -49,7 +50,7 @@ export default function PurchaseDetailPage() {
   })
 
   const handleDelete = () => {
-    if (!confirm('এই বাজার মুছে ফেলবেন?')) return
+    setConfirmOpen(false)
     deleteMutation.mutate()
   }
 
@@ -57,15 +58,50 @@ export default function PurchaseDetailPage() {
 
   if (loading) {
     return (
-      <div className="p-4 space-y-3 max-w-2xl mx-auto">
-        <Skeleton className="h-8 w-48" />
+      <div className="p-4 md:p-6 space-y-4 max-w-2xl mx-auto">
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-5 w-5 rounded" />
+          <Skeleton className="h-7 w-44" />
+        </div>
+        <div className="flex gap-2">
+          <Skeleton className="h-8 flex-1 rounded-lg" />
+          <Skeleton className="h-8 flex-1 rounded-lg" />
+        </div>
         {[1, 2, 3].map(i => <Skeleton key={i} className="h-16 rounded-lg" />)}
       </div>
     )
   }
 
+  if (purchaseError) {
+    return (
+      <div className="p-4 md:p-6 max-w-2xl mx-auto space-y-4">
+        <button
+          onClick={() => router.push('/purchases')}
+          className="flex items-center gap-1.5 text-muted-foreground text-sm hover:text-foreground transition-colors"
+        >
+          <ChevronLeft className="h-4 w-4" /> ফিরে যান
+        </button>
+        <ErrorState
+          title="বাজার লোড ব্যর্থ হয়েছে"
+          description="এই বাজারটি লোড করা যায়নি। আবার চেষ্টা করুন।"
+          onRetry={() => refetchPurchase()}
+        />
+      </div>
+    )
+  }
+
   if (!purchase) {
-    return <div className="p-4 text-center text-muted-foreground">বাজার পাওয়া যায়নি।</div>
+    return (
+      <div className="p-4 md:p-6 max-w-2xl mx-auto space-y-4">
+        <button
+          onClick={() => router.push('/purchases')}
+          className="flex items-center gap-1.5 text-muted-foreground text-sm hover:text-foreground transition-colors"
+        >
+          <ChevronLeft className="h-4 w-4" /> ফিরে যান
+        </button>
+        <p className="text-center text-muted-foreground py-8">বাজার পাওয়া যায়নি।</p>
+      </div>
+    )
   }
 
   if (mode === 'edit') {
@@ -74,7 +110,7 @@ export default function PurchaseDetailPage() {
         products={products}
         purchase={purchase}
         onCancel={() => {
-          queryClient.invalidateQueries({ queryKey: ['purchase', id] })
+          queryClient.invalidateQueries({ queryKey: ['purchase', purchaseId] })
           setMode('view')
         }}
       />
@@ -86,7 +122,11 @@ export default function PurchaseDetailPage() {
   return (
     <div className="p-4 md:p-6 space-y-4 max-w-2xl mx-auto">
       <div className="flex items-center gap-3">
-        <button onClick={() => router.back()} className="text-muted-foreground">
+        <button
+          onClick={() => router.push('/purchases')}
+          aria-label="ক্রয় তালিকায় ফিরে যান"
+          className="text-muted-foreground hover:text-foreground transition-colors p-1 -ml-1 rounded-lg hover:bg-muted"
+        >
           <ChevronLeft className="h-5 w-5" />
         </button>
         <div className="flex-1 min-w-0">
@@ -101,10 +141,19 @@ export default function PurchaseDetailPage() {
         <Button size="sm" variant="outline" onClick={() => setMode('edit')} className="flex-1">
           <Pencil className="h-3.5 w-3.5 mr-1" /> সম্পাদনা
         </Button>
-        <Button size="sm" variant="destructive" onClick={handleDelete} className="flex-1">
+        <Button size="sm" variant="destructive" onClick={() => setConfirmOpen(true)} className="flex-1">
           <Trash2 className="h-3.5 w-3.5 mr-1" /> মুছুন
         </Button>
       </div>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        onConfirm={handleDelete}
+        title="বাজার মুছে ফেলবেন?"
+        description="এই কাজটি আর পূর্বাবস্থায় ফেরানো যাবে না।"
+        loading={deleteMutation.isPending}
+      />
 
       <Card>
         <CardContent className="p-0">

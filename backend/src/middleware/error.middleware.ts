@@ -11,8 +11,10 @@ export function errorMiddleware(
   if (err instanceof Prisma.PrismaClientKnownRequestError) {
     const { code } = err as Prisma.PrismaClientKnownRequestError;
     let message = "Database error";
-    if (code === "P2002") message = "এই ডেটা ইতিমধ্যে বিদ্যমান";
-    else if (code === "P2025") message = "অনুরোধকৃত ডেটা পাওয়া যায়নি";
+    if (code === "P2002") {
+      return res.status(409).json({ success: false, message: "এই ডেটা ইতিমধ্যে বিদ্যমান" });
+    }
+    if (code === "P2025") message = "অনুরোধকৃত ডেটা পাওয়া যায়নি";
     else if (code === "P2003") message = "বৈধ সম্পর্ক না থাকার কারণে অপারেশন ব্যর্থ";
     return res.status(400).json({ success: false, message });
   }

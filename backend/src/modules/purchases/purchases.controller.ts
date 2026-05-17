@@ -1,7 +1,7 @@
 import { NextFunction, Response } from "express";
 import { AuthRequest } from "../../middleware/auth.middleware";
 import { parsePositiveInt } from "../../utils/parseId";
-import { sanitizeSearch } from "../../validators";
+import { sanitizeSearch } from "../../utils/sanitize";
 import {
   getPurchase,
   getSummary,

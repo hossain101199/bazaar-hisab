@@ -48,6 +48,22 @@ function calcTotal(items: ItemInput[]) {
   return items.reduce((sum, item) => sum + item.totalPrice, 0);
 }
 
+async function validateProductAccess(userId: number, productIds: number[]) {
+  const uniqueIds = [...new Set(productIds)];
+  const found = await prisma.product.findMany({
+    where: { id: { in: uniqueIds } },
+    select: { id: true, type: true, userId: true },
+  });
+  if (found.length !== uniqueIds.length) {
+    throw new AppError("একটি বা একাধিক পণ্য পাওয়া যায়নি", 404);
+  }
+  for (const p of found) {
+    if (p.type !== "SYSTEM" && p.userId !== userId) {
+      throw new AppError("অননুমোদিত পণ্য ব্যবহার", 403);
+    }
+  }
+}
+
 // ─── List ────────────────────────────────────────────────────────────────────
 
 export async function listPurchases(
@@ -110,18 +126,18 @@ export async function createPurchase(
   data: { date: string; note?: string; items: ItemInput[] },
 ) {
   validateItems(data.items);
+  const productIds = data.items.map((i) => i.productId);
+  await validateProductAccess(userId, productIds);
 
-  return prisma.$transaction(async (tx) => {
-    return tx.purchase.create({
-      data: {
-        date: new Date(data.date),
-        note: data.note ?? null,
-        totalAmount: calcTotal(data.items),
-        userId,
-        items: { create: data.items.map(buildItemData) },
-      },
-      select: purchaseSelect,
-    });
+  return prisma.purchase.create({
+    data: {
+      date: new Date(data.date),
+      note: data.note ?? null,
+      totalAmount: calcTotal(data.items),
+      userId,
+      items: { create: data.items.map(buildItemData) },
+    },
+    select: purchaseSelect,
   });
 }
 
@@ -135,7 +151,10 @@ export async function updatePurchase(
   const existing = await prisma.purchase.findFirst({ where: { id: purchaseId, userId } });
   if (!existing) throw new AppError("ক্রয় পাওয়া যায়নি", 404);
 
-  if (data.items !== undefined) validateItems(data.items);
+  if (data.items !== undefined) {
+    validateItems(data.items);
+    await validateProductAccess(userId, data.items.map((i) => i.productId));
+  }
 
   const totalAmount = data.items !== undefined ? calcTotal(data.items) : existing.totalAmount;
 
@@ -163,10 +182,8 @@ export async function deletePurchase(userId: number, purchaseId: number) {
   const existing = await prisma.purchase.findFirst({ where: { id: purchaseId, userId } });
   if (!existing) throw new AppError("ক্রয় পাওয়া যায়নি", 404);
 
-  await prisma.$transaction(async (tx) => {
-    await tx.purchaseItem.deleteMany({ where: { purchaseId } });
-    await tx.purchase.delete({ where: { id: purchaseId } });
-  });
+  // PurchaseItem has onDelete: Cascade on purchaseId — items are deleted automatically.
+  await prisma.purchase.delete({ where: { id: purchaseId } });
 }
 
 // ─── Summary Report ──────────────────────────────────────────────────────────

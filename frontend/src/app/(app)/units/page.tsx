@@ -3,6 +3,9 @@
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { EmptyState } from '@/components/ui/empty-state'
+import { ErrorState } from '@/components/ui/error-state'
 import { Skeleton } from '@/components/ui/skeleton'
 import { UnitDialog } from '@/components/units/UnitDialog'
 import { extractErrorMessage } from '@/lib/error-handler'
@@ -10,8 +13,8 @@ import { unitsService } from '@/services/units.service'
 import { selectIsAdmin, useAuthStore } from '@/store/auth.store'
 import type { Unit } from '@/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Pencil, Plus, Trash2 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { Pencil, Plus, Ruler, Trash2 } from 'lucide-react'
+import { useState } from 'react'
 import { toast } from 'sonner'
 
 const GROUP_LABEL: Record<string, string> = {
@@ -20,20 +23,91 @@ const GROUP_LABEL: Record<string, string> = {
   count: 'সংখ্যা',
 }
 
+interface UnitRowProps {
+  u: Unit
+  isAdmin: boolean
+  onEdit: (u: Unit) => void
+  onDelete: (u: Unit) => void
+}
+
+function UnitRow({ u, isAdmin, onEdit, onDelete }: UnitRowProps) {
+  return (
+    <div className="flex items-center gap-3 py-3 border-b last:border-0">
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="font-medium text-sm">{u.name}</span>
+          {u.groupKey && (
+            <Badge variant="outline" className="text-xs px-1.5 py-0">
+              {GROUP_LABEL[u.groupKey] ?? u.groupKey}
+            </Badge>
+          )}
+          {u.type === 'SYSTEM' && (
+            <Badge variant="secondary" className="text-xs px-1.5 py-0">সিস্টেম</Badge>
+          )}
+        </div>
+        {u.baseRatio != null && (
+          <p className="text-xs text-muted-foreground mt-0.5">বেস অনুপাত: {u.baseRatio}</p>
+        )}
+      </div>
+      {u.type === 'USER' && (
+        <div className="flex gap-1 shrink-0">
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8"
+            aria-label={`"${u.name}" সম্পাদনা করুন`}
+            onClick={() => onEdit(u)}
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8 text-destructive hover:text-destructive"
+            aria-label={`"${u.name}" মুছুন`}
+            onClick={() => onDelete(u)}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )}
+      {u.type === 'SYSTEM' && isAdmin && (
+        <div className="flex gap-1 shrink-0">
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8"
+            aria-label={`"${u.name}" সম্পাদনা করুন`}
+            onClick={() => onEdit(u)}
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8 text-destructive hover:text-destructive"
+            aria-label={`"${u.name}" মুছুন`}
+            onClick={() => onDelete(u)}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function UnitsPage() {
   const queryClient = useQueryClient()
   const isAdmin = useAuthStore(selectIsAdmin)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editTarget, setEditTarget] = useState<Unit | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<Unit | null>(null)
 
-  const { data: units = [], isLoading, isError } = useQuery<Unit[]>({
+  const { data: units = [], isLoading, isError, refetch } = useQuery<Unit[]>({
     queryKey: ['units'],
-    queryFn: () => unitsService.list().then(r => r.data.units),
+    queryFn: () => unitsService.list(),
   })
-
-  useEffect(() => {
-    if (isError) toast.error('ডেটা লোড ব্যর্থ হয়েছে')
-  }, [isError])
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => unitsService.delete(id),
@@ -50,46 +124,11 @@ export default function UnitsPage() {
   const openAdd = () => { setEditTarget(null); setDialogOpen(true) }
   const openEdit = (u: Unit) => { setEditTarget(u); setDialogOpen(true) }
 
-  const handleDelete = (u: Unit) => {
-    if (!confirm(`"${u.name}" মুছে ফেলবেন?`)) return
-    deleteMutation.mutate(u.id)
+  const handleDelete = () => {
+    if (!deleteTarget) return
+    deleteMutation.mutate(deleteTarget.id)
+    setDeleteTarget(null)
   }
-
-  const UnitRow = ({ u }: { u: Unit }) => (
-    <div className="flex items-center gap-3 py-3 border-b last:border-0">
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-medium text-sm">{u.name}</span>
-          {u.groupKey && (
-            <Badge variant="outline" className="text-xs px-1.5 py-0">
-              {GROUP_LABEL[u.groupKey] ?? u.groupKey}
-            </Badge>
-          )}
-          {u.type === 'SYSTEM' && (
-            <Badge variant="secondary" className="text-xs px-1.5 py-0">সিস্টেম</Badge>
-          )}
-        </div>
-        {u.baseRatio != null && (
-          <p className="text-xs text-muted-foreground mt-0.5">base ratio: {u.baseRatio}</p>
-        )}
-      </div>
-      {u.type === 'USER' && (
-        <div className="flex gap-1 shrink-0">
-          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => openEdit(u)}>
-            <Pencil className="h-3.5 w-3.5" />
-          </Button>
-          <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDelete(u)}>
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-      )}
-      {u.type === 'SYSTEM' && isAdmin && (
-        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => openEdit(u)}>
-          <Pencil className="h-3.5 w-3.5" />
-        </Button>
-      )}
-    </div>
-  )
 
   const systemUnits = units.filter(u => u.type === 'SYSTEM')
   const userUnits = units.filter(u => u.type === 'USER')
@@ -109,25 +148,40 @@ export default function UnitsPage() {
         </div>
       )}
 
-      {!isLoading && systemUnits.length > 0 && (
+      {isError && !isLoading && (
         <Card>
-          <CardContent className="px-4 py-1">
-            <p className="text-xs font-semibold text-muted-foreground py-2">সিস্টেম একক</p>
-            {systemUnits.map(u => <UnitRow key={u.id} u={u} />)}
+          <CardContent className="p-0">
+            <ErrorState compact onRetry={() => refetch()} />
           </CardContent>
         </Card>
       )}
 
-      {!isLoading && (
+      {!isLoading && !isError && systemUnits.length > 0 && (
+        <Card>
+          <CardContent className="px-4 py-1">
+            <p className="text-xs font-semibold text-muted-foreground py-2">সিস্টেম একক</p>
+            {systemUnits.map(u => (
+              <UnitRow key={u.id} u={u} isAdmin={isAdmin} onEdit={openEdit} onDelete={setDeleteTarget} />
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {!isLoading && !isError && (
         <Card>
           <CardContent className="px-4 py-1">
             <p className="text-xs font-semibold text-muted-foreground py-2">আমার একক</p>
             {userUnits.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">
-                কোনো একক নেই — &quot;নতুন একক&quot; বাটনে ক্লিক করুন
-              </p>
+              <EmptyState
+                icon={Ruler}
+                title="কোনো একক নেই"
+                description='"নতুন একক" বাটনে ক্লিক করে একক যোগ করুন'
+                className="py-8"
+              />
             ) : (
-              userUnits.map(u => <UnitRow key={u.id} u={u} />)
+              userUnits.map(u => (
+                <UnitRow key={u.id} u={u} isAdmin={isAdmin} onEdit={openEdit} onDelete={setDeleteTarget} />
+              ))
             )}
           </CardContent>
         </Card>
@@ -138,6 +192,15 @@ export default function UnitsPage() {
         onClose={() => setDialogOpen(false)}
         onSuccess={() => queryClient.invalidateQueries({ queryKey: ['units'] })}
         unit={editTarget}
+      />
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        title={`"${deleteTarget?.name}" মুছে ফেলবেন?`}
+        description="এই কাজটি আর পূর্বাবস্থায় ফেরানো যাবে না।"
+        loading={deleteMutation.isPending}
       />
     </div>
   )

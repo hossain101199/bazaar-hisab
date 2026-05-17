@@ -3,6 +3,7 @@
 import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { ErrorState } from '@/components/ui/error-state'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
@@ -16,7 +17,6 @@ import { Package, Ruler, Shield, Users } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
-import { toast } from 'sonner'
 
 export default function AdminPage() {
   const router = useRouter()
@@ -26,15 +26,11 @@ export default function AdminPage() {
     if (!isAdmin) router.replace('/dashboard')
   }, [isAdmin, router])
 
-  const { data: users = [], isLoading, isError } = useQuery<User[]>({
+  const { data: users = [], isLoading, isError, refetch } = useQuery<User[]>({
     queryKey: ['admin-users'],
-    queryFn: () => adminService.listUsers().then(r => r.data.users),
+    queryFn: () => adminService.listUsers(),
     enabled: isAdmin,
   })
-
-  useEffect(() => {
-    if (isError) toast.error('ব্যবহারকারী লোড ব্যর্থ হয়েছে')
-  }, [isError])
 
   if (!isAdmin) return null
 
@@ -74,7 +70,10 @@ export default function AdminPage() {
               {[1, 2, 3].map(i => <Skeleton key={i} className="h-12 rounded" />)}
             </div>
           )}
-          {!isLoading && users.map((u, i) => (
+          {isError && !isLoading && (
+            <ErrorState compact onRetry={() => refetch()} />
+          )}
+          {!isLoading && !isError && users.map((u, i) => (
             <div key={u.id}>
               {i > 0 && <Separator />}
               <div className="px-4 py-3 flex items-center justify-between gap-3">

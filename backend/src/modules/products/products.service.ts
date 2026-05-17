@@ -24,10 +24,12 @@ type ProductOwnership = { type: string; userId: number | null };
 function assertUserOwnsProduct(
   product: ProductOwnership,
   userId: number,
+  userRole: string,
   action: "পরিবর্তন" | "মুছে ফেলা",
 ) {
   if (product.type === "SYSTEM") {
-    throw new AppError(`SYSTEM পণ্য ${action} করা যাবে না`, 403);
+    if (userRole !== "ADMIN") throw new AppError(`SYSTEM পণ্য ${action} করা যাবে না`, 403);
+    return;
   }
   if (product.userId !== userId) {
     throw new AppError(`এই পণ্য ${action}ের অনুমতি নেই`, 403);
@@ -40,8 +42,6 @@ export async function listProducts(userId: number) {
     select: productSelect,
     orderBy: [{ type: "asc" }, { name: "asc" }],
   }) as ProductRow[];
-
-  if (products.length === 0) return products.map((p) => ({ ...p, lastPrice: null }));
 
   const productIds = products.map((p) => p.id);
 
@@ -72,6 +72,17 @@ export async function createProduct(
   const trimmedName = data.name.trim();
   if (!trimmedName) throw new AppError("পণ্যের নাম দিন", 400);
 
+  const conflict = await prisma.product.findFirst({
+    where: {
+      name: { equals: trimmedName, mode: "insensitive" },
+      ...(isSystem
+        ? { type: "SYSTEM" }
+        : { OR: [{ type: "SYSTEM" }, { userId }] }
+      ),
+    },
+  });
+  if (conflict) throw new AppError("এই নামে একটি পণ্য ইতিমধ্যে আছে", 409);
+
   return prisma.product.create({
     data: {
       name: trimmedName,
@@ -85,20 +96,36 @@ export async function createProduct(
 
 export async function updateProduct(
   userId: number,
+  userRole: string,
   productId: number,
   data: { name?: string; unitId?: number },
 ) {
   const product = await prisma.product.findUnique({ where: { id: productId } });
   if (!product) throw new AppError("পণ্য পাওয়া যায়নি", 404);
-  assertUserOwnsProduct(product, userId, "পরিবর্তন");
+  assertUserOwnsProduct(product, userId, userRole, "পরিবর্তন");
 
   if (data.unitId !== undefined) {
     const unit = await prisma.unit.findUnique({ where: { id: data.unitId } });
     if (!unit) throw new AppError("একক পাওয়া যায়নি", 404);
   }
 
-  if (data.name !== undefined && !data.name.trim()) {
-    throw new AppError("পণ্যের নাম দিন", 400);
+  if (data.name !== undefined) {
+    const trimmedName = data.name.trim();
+    if (!trimmedName) throw new AppError("পণ্যের নাম দিন", 400);
+
+    // Admin editing SYSTEM: check only against other SYSTEM products
+    // User editing own USER product: check against SYSTEM + own USER products
+    const conflict = await prisma.product.findFirst({
+      where: {
+        name: { equals: trimmedName, mode: "insensitive" },
+        ...(product.type === "SYSTEM"
+          ? { type: "SYSTEM" }
+          : { OR: [{ type: "SYSTEM" }, { userId }] }
+        ),
+        NOT: { id: productId },
+      },
+    });
+    if (conflict) throw new AppError("এই নামে একটি পণ্য ইতিমধ্যে আছে", 409);
   }
 
   return prisma.product.update({
@@ -111,10 +138,10 @@ export async function updateProduct(
   });
 }
 
-export async function deleteProduct(userId: number, productId: number) {
+export async function deleteProduct(userId: number, userRole: string, productId: number) {
   const product = await prisma.product.findUnique({ where: { id: productId } });
   if (!product) throw new AppError("পণ্য পাওয়া যায়নি", 404);
-  assertUserOwnsProduct(product, userId, "মুছে ফেলা");
+  assertUserOwnsProduct(product, userId, userRole, "মুছে ফেলা");
 
   const usedInPurchase = await prisma.purchaseItem.findFirst({ where: { productId } });
   if (usedInPurchase) {

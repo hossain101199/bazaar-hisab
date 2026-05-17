@@ -35,7 +35,13 @@ export default function LoginPage() {
       try {
         const res = await authService.login(values.email, values.password);
         login(res.accessToken, res.user);
-        router.replace("/dashboard");
+        const redirect = sessionStorage.getItem("redirectAfterLogin");
+        if (redirect) {
+          sessionStorage.removeItem("redirectAfterLogin");
+          router.replace(redirect);
+        } else {
+          router.replace("/dashboard");
+        }
       } catch (err: unknown) {
         const { message } = extractErrorMessage(err);
         toast.error(message);
@@ -47,25 +53,31 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader className="text-center pb-2">
+      <Card className="w-full max-w-sm shadow-lg">
+        <CardHeader className="text-center pb-4 pt-6">
+          <div className="h-12 w-12 rounded-xl bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm mx-auto mb-3 shadow">
+            ক্যা
+          </div>
           <CardTitle className="text-2xl font-bold">বাজার হিসাব</CardTitle>
-          <p className="text-muted-foreground text-sm">
-            বাজার হিসাব সফটওয়্যার
+          <p className="text-muted-foreground text-sm mt-0.5">
+            আপনার অ্যাকাউন্টে লগইন করুন
           </p>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={formik.handleSubmit} className="space-y-4">
+        <CardContent className="pb-6">
+          <form onSubmit={formik.handleSubmit} className="space-y-4" noValidate>
             <div className="space-y-1.5">
               <Label htmlFor="email">ইমেইল</Label>
               <Input
                 id="email"
                 type="email"
-                placeholder="admin@example.com"
+                placeholder="example@email.com"
+                autoFocus
+                autoComplete="email"
                 {...formik.getFieldProps("email")}
+                className={formik.touched.email && formik.errors.email ? "border-destructive focus-visible:ring-destructive/30" : ""}
               />
               {formik.touched.email && formik.errors.email && (
-                <p className="text-destructive text-xs">
+                <p className="text-destructive text-xs" role="alert">
                   {formik.errors.email}
                 </p>
               )}
@@ -77,10 +89,12 @@ export default function LoginPage() {
                 id="password"
                 type="password"
                 placeholder="••••••••"
+                autoComplete="current-password"
                 {...formik.getFieldProps("password")}
+                className={formik.touched.password && formik.errors.password ? "border-destructive focus-visible:ring-destructive/30" : ""}
               />
               {formik.touched.password && formik.errors.password && (
-                <p className="text-destructive text-xs">
+                <p className="text-destructive text-xs" role="alert">
                   {formik.errors.password}
                 </p>
               )}
@@ -89,16 +103,16 @@ export default function LoginPage() {
             <Button
               type="submit"
               className="w-full"
-              disabled={formik.isSubmitting}
+              loading={formik.isSubmitting}
             >
-              {formik.isSubmitting ? "লগইন হচ্ছে..." : "লগইন করুন"}
+              লগইন করুন
             </Button>
 
             <p className="text-center text-sm text-muted-foreground">
               অ্যাকাউন্ট নেই?{" "}
               <Link
                 href="/register"
-                className="text-foreground underline underline-offset-4"
+                className="text-foreground font-medium underline underline-offset-4 hover:text-primary transition-colors"
               >
                 নিবন্ধন করুন
               </Link>

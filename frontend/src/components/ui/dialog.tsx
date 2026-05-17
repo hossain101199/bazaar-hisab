@@ -8,11 +8,13 @@ import { XIcon } from "lucide-react"
 interface DialogContextValue {
   open: boolean
   onClose: () => void
+  titleId: string
 }
 
 const DialogContext = React.createContext<DialogContextValue>({
   open: false,
   onClose: () => {},
+  titleId: '',
 })
 
 interface DialogRootProps {
@@ -24,8 +26,9 @@ interface DialogRootProps {
 
 function Dialog({ open = false, onOpenChange, children }: DialogRootProps) {
   const onClose = React.useCallback(() => onOpenChange?.(false), [onOpenChange])
+  const titleId = React.useId()
   return (
-    <DialogContext.Provider value={{ open, onClose }}>
+    <DialogContext.Provider value={{ open, onClose, titleId }}>
       {children}
     </DialogContext.Provider>
   )
@@ -33,14 +36,6 @@ function Dialog({ open = false, onOpenChange, children }: DialogRootProps) {
 
 function DialogTrigger({ children, onClick, ...props }: React.ComponentProps<"button">) {
   return <button onClick={onClick} {...props}>{children}</button>
-}
-
-function DialogPortal({ children }: { children?: React.ReactNode }) {
-  return <>{children}</>
-}
-
-function DialogOverlay({ className, ...props }: React.ComponentProps<"div">) {
-  return null
 }
 
 function DialogClose({ children, ...props }: React.ComponentProps<"button">) {
@@ -58,24 +53,82 @@ function DialogContent({
   showCloseButton = true,
   ...props
 }: React.ComponentProps<"div"> & { showCloseButton?: boolean }) {
-  const { open, onClose } = React.useContext(DialogContext)
+  const { open, onClose, titleId } = React.useContext(DialogContext)
   const [mounted, setMounted] = React.useState(false)
+  // `shown` controls DOM presence; `entered` controls CSS transition state
+  const [shown, setShown] = React.useState(false)
+  const [entered, setEntered] = React.useState(false)
+  const contentRef = React.useRef<HTMLDivElement>(null)
+
+  React.useEffect(() => { setMounted(true) }, [])
 
   React.useEffect(() => {
-    setMounted(true)
-  }, [])
+    if (!mounted) return
+    if (open) {
+      setShown(true)
+      // Double rAF ensures initial render (shown=true, entered=false) paints
+      // before the transition class is added — prevents instant-snap.
+      const id = requestAnimationFrame(() =>
+        requestAnimationFrame(() => setEntered(true))
+      )
+      return () => cancelAnimationFrame(id)
+    } else {
+      setEntered(false)
+      const id = setTimeout(() => setShown(false), 220)
+      return () => clearTimeout(id)
+    }
+  }, [open, mounted])
 
-  if (!mounted || !open) return null
+  // Escape key
+  React.useEffect(() => {
+    if (!open) return
+    const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
+    document.addEventListener("keydown", handleKey)
+    return () => document.removeEventListener("keydown", handleKey)
+  }, [open, onClose])
+
+  // Scroll lock
+  React.useEffect(() => {
+    if (!open) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => { document.body.style.overflow = prev }
+  }, [open])
+
+  // Auto-focus first focusable element when dialog opens
+  React.useEffect(() => {
+    if (!entered || !contentRef.current) return
+    const focusable = contentRef.current.querySelector<HTMLElement>(
+      'input:not([disabled]), button:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )
+    focusable?.focus()
+  }, [entered])
+
+  if (!mounted || !shown) return null
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div
+      className={cn(
+        "fixed inset-0 z-50 flex items-center justify-center p-4 transition-opacity duration-200",
+        entered ? "opacity-100" : "opacity-0"
+      )}
+    >
+      {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+        aria-hidden="true"
         onClick={onClose}
       />
+      {/* Panel */}
       <div
+        ref={contentRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
         className={cn(
           "relative z-10 w-full max-w-sm rounded-xl bg-card p-5 text-sm shadow-xl ring-1 ring-border",
+          "transition-all duration-200",
+          entered ? "scale-100 opacity-100 translate-y-0" : "scale-95 opacity-0 translate-y-2",
           className
         )}
         {...props}
@@ -85,10 +138,10 @@ function DialogContent({
           <button
             type="button"
             onClick={onClose}
+            aria-label="বন্ধ করুন"
             className="absolute top-3 right-3 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
           >
             <XIcon className="size-4" />
-            <span className="sr-only">বন্ধ করুন</span>
           </button>
         )}
       </div>
@@ -105,7 +158,6 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
 
 function DialogFooter({
   className,
-  showCloseButton,
   children,
   ...props
 }: React.ComponentProps<"div"> & { showCloseButton?: boolean }) {
@@ -123,8 +175,10 @@ function DialogFooter({
 }
 
 function DialogTitle({ className, ...props }: React.ComponentProps<"h2">) {
+  const { titleId } = React.useContext(DialogContext)
   return (
     <h2
+      id={titleId}
       className={cn("text-base font-semibold leading-none", className)}
       {...props}
     />
@@ -147,8 +201,6 @@ export {
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogOverlay,
-  DialogPortal,
   DialogTitle,
   DialogTrigger,
 }

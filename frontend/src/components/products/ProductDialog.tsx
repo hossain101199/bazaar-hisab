@@ -165,8 +165,8 @@ export function ProductDialog({ open, onClose, onSuccess, units, product }: Prop
             >
               বাতিল
             </Button>
-            <Button type="submit" className="flex-1" disabled={isSubmitting}>
-              {isSubmitting ? "সংরক্ষণ হচ্ছে..." : "সংরক্ষণ করুন"}
+            <Button type="submit" className="flex-1" loading={isSubmitting}>
+              সংরক্ষণ করুন
             </Button>
           </div>
         </form>

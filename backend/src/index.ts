@@ -23,11 +23,20 @@ const globalLimiter = rateLimit({
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  max: process.env.NODE_ENV === 'production' ? 10 : 100,
   message: { success: false, message: "অনেক বার চেষ্টা করা হয়েছে, ১৫ মিনিট পর আবার চেষ্টা করুন" },
 });
 
-app.use(helmet());
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+      },
+    },
+  }),
+);
 app.use(cookieParser());
 app.use(
   cors({
@@ -72,8 +81,21 @@ async function bootstrapAdmin() {
   console.log(`✓ Admin তৈরি হয়েছে — id: ${admin.id}, email: ${admin.email}`);
 }
 
+const ONE_DAY_MS = 24 * 60 * 60 * 1000
+
+async function cleanupExpiredTokens() {
+  const result = await prisma.refreshToken.deleteMany({
+    where: { expiresAt: { lt: new Date() } },
+  })
+  if (result.count > 0) {
+    console.log(`✓ ${result.count} টি মেয়াদোত্তীর্ণ RefreshToken মুছে ফেলা হয়েছে`)
+  }
+}
+
 async function start() {
   await bootstrapAdmin();
+  await cleanupExpiredTokens();
+  setInterval(cleanupExpiredTokens, ONE_DAY_MS);
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
   });

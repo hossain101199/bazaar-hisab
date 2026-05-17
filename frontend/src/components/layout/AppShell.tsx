@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useMemo } from "react";
 
 const navItems = [
   { href: "/dashboard", icon: Home, label: "হোম" },
@@ -35,6 +36,7 @@ function NavLink({ href, icon: Icon, label }: NavItem) {
   return (
     <Link
       href={href}
+      aria-current={active ? "page" : undefined}
       className={cn(
         "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
         active
@@ -55,7 +57,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const logout = useAuthStore((s) => s.logout);
   const isAdmin = useAuthStore(selectIsAdmin);
 
-  const sidebarItems = [...navItems, ...(isAdmin ? [adminItem] : [])];
+  const allNavItems = useMemo(
+    () => [...navItems, ...(isAdmin ? [adminItem] : [])],
+    [isAdmin],
+  );
+
+  // Derive current page title from active route for mobile header
+  const currentPageLabel = useMemo(() => {
+    const match = allNavItems.find(
+      ({ href }) => pathname === href || pathname.startsWith(href + "/"),
+    );
+    return match?.label ?? "বাজার হিসাব";
+  }, [pathname, allNavItems]);
 
   const handleLogout = async () => {
     try {
@@ -72,18 +85,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <aside className="hidden md:flex flex-col w-60 shrink-0 border-r">
         {/* Logo */}
         <div className="flex items-center gap-3 px-4 py-5 border-b">
-          <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm">
+          <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm shrink-0">
             ক্যা
           </div>
           <div>
             <p className="font-semibold text-sm leading-none">বাজার হিসাব</p>
-            <p className="text-xs text-muted-foreground mt-0.5">বাজার হিসাব</p>
+            <p className="text-xs text-muted-foreground mt-0.5">বাজার খরচের হিসাব</p>
           </div>
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 p-3 space-y-1">
-          {sidebarItems.map((item) => (
+        <nav aria-label="প্রধান নেভিগেশন" className="flex-1 p-3 space-y-1">
+          {allNavItems.map((item) => (
             <NavLink key={item.href} {...item} />
           ))}
         </nav>
@@ -93,7 +106,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {/* User */}
         <div className="p-3 space-y-2">
           <div className="flex items-center gap-2 px-2 py-1">
-            <Avatar className="h-7 w-7">
+            <Avatar className="h-7 w-7 shrink-0">
               <AvatarFallback className="text-xs">
                 {user?.name?.[0]}
               </AvatarFallback>
@@ -109,6 +122,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
           <button
             onClick={handleLogout}
+            aria-label="লগআউট করুন"
             className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
           >
             <LogOut className="h-4 w-4" />
@@ -121,8 +135,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile header */}
         <header className="md:hidden flex items-center justify-between px-4 py-3 border-b bg-background sticky top-0 z-40">
-          <p className="font-bold">বাজার হিসাব</p>
-          <button onClick={handleLogout} className="text-muted-foreground">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="h-6 w-6 rounded bg-primary flex items-center justify-center text-primary-foreground font-bold text-[10px] shrink-0">
+              ক্যা
+            </div>
+            <p className="font-semibold text-sm truncate">{currentPageLabel}</p>
+          </div>
+          <button
+            onClick={handleLogout}
+            aria-label="লগআউট করুন"
+            className="text-muted-foreground p-2 -mr-2 rounded-lg hover:bg-accent transition-colors"
+          >
             <LogOut className="h-5 w-5" />
           </button>
         </header>
@@ -131,24 +154,28 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* ── Mobile Bottom Nav ── */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 border-t bg-background z-50">
+      <nav
+        aria-label="মোবাইল নেভিগেশন"
+        className="md:hidden fixed bottom-0 inset-x-0 border-t bg-background/95 backdrop-blur-sm z-50"
+      >
         <div
           className="grid h-16"
-          style={{ gridTemplateColumns: `repeat(5, 1fr)` }}
+          style={{ gridTemplateColumns: `repeat(${allNavItems.length}, 1fr)` }}
         >
-          {navItems.map(({ href, icon: Icon, label }) => {
+          {allNavItems.map(({ href, icon: Icon, label }) => {
             const active = pathname === href || pathname.startsWith(href + "/");
             return (
               <Link
                 key={href}
                 href={href}
+                aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex flex-col items-center justify-center gap-1 text-xs transition-colors",
+                  "flex flex-col items-center justify-center gap-1 text-xs transition-colors min-h-[44px]",
                   active ? "text-primary" : "text-muted-foreground",
                 )}
               >
-                <Icon className="h-5 w-5" />
-                <span>{label}</span>
+                <Icon className={cn("h-5 w-5 transition-transform", active && "scale-110")} />
+                <span className={cn("transition-all", active && "font-semibold")}>{label}</span>
               </Link>
             );
           })}

@@ -4,7 +4,7 @@ export function validateDate(dateString: string): boolean {
   return date instanceof Date && !isNaN(date.getTime());
 }
 
-export function validatePositiveNumber(value: any): boolean {
+export function validatePositiveNumber(value: unknown): boolean {
   const num = Number(value);
   return !isNaN(num) && num > 0 && isFinite(num);
 }
@@ -19,12 +19,12 @@ export function validateUnitName(name: string): boolean {
   return trimmed.length > 0 && trimmed.length <= 100;
 }
 
-export function validateQuantity(quantity: any): boolean {
+export function validateQuantity(quantity: unknown): boolean {
   const num = Number(quantity);
   return !isNaN(num) && num > 0 && isFinite(num);
 }
 
-export function validatePrice(price: any, maxPrice = 10000000): boolean {
+export function validatePrice(price: unknown, maxPrice = 10000000): boolean {
   const num = Number(price);
   return !isNaN(num) && num > 0 && num <= maxPrice && isFinite(num);
 }

@@ -53,9 +53,3 @@ export function validateArray<T>(arr: unknown, validator: (item: unknown) => boo
 export function validateToken(token: unknown): boolean {
   return typeof token === "string" && token.length > 0;
 }
-
-export function validateAuthResponse(response: unknown): boolean {
-  if (typeof response !== "object" || response === null) return false;
-  const r = response as Record<string, unknown>;
-  return validateToken(r.token) && validateUser(r.user);
-}

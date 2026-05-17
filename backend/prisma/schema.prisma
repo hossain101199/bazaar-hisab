@@ -7,16 +7,21 @@ datasource db {
   provider = "postgresql"
 }
 
+enum EntityType {
+  SYSTEM
+  USER
+}
+
 // SYSTEM একক: userId = null, type = SYSTEM — Admin তৈরি করেন, কেউ মুছতে পারবেন না
 // USER একক:   userId = ব্যবহারকারীর id, type = USER — নিজে তৈরি, নিজে মুছতে পারবেন
 model Unit {
-  id        Int       @id @default(autoincrement())
+  id        Int        @id @default(autoincrement())
   name      String
-  type      String // SYSTEM | USER
+  type      EntityType @default(USER)
   groupKey  String? // weight | volume | count — null হলে রূপান্তর নেই
   baseRatio Float? // base unit-এর তুলনায় অনুপাত — null হলে রূপান্তর নেই
   userId    Int?
-  user      User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
   products  Product[]
 
   @@unique([name, userId])
@@ -28,7 +33,7 @@ model Unit {
 model Product {
   id     Int            @id @default(autoincrement())
   name   String
-  type   String         @default("USER") // SYSTEM | USER
+  type   EntityType     @default(USER)
   unitId Int
   unit   Unit           @relation(fields: [unitId], references: [id])
   userId Int?
@@ -85,4 +90,6 @@ model PurchaseItem {
   product      Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
   purchaseId   Int
   purchase     Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
 }

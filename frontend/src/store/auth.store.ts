@@ -16,8 +16,18 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       token: null,
       user: null,
-      login: (token, user) => set({ token, user }),
-      logout: () => set({ token: null, user: null }),
+      login: (token, user) => {
+        if (typeof document !== 'undefined') {
+          document.cookie = `role=${user.role}; path=/; SameSite=Lax`
+        }
+        set({ token, user })
+      },
+      logout: () => {
+        if (typeof document !== 'undefined') {
+          document.cookie = 'role=; path=/; max-age=0'
+        }
+        set({ token: null, user: null })
+      },
       setUser: (user) => set({ user }),
       setToken: (token) => set({ token }),
     }),

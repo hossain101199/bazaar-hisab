@@ -60,7 +60,13 @@ export async function rotateRefreshToken(token: string) {
     throw new AppError('টোকেন অবৈধ বা মেয়াদ শেষ', 401)
   }
 
-  await prisma.refreshToken.delete({ where: { id: stored.id } })
+  // Delete used token + sweep any other expired tokens for this user in one transaction.
+  await prisma.$transaction([
+    prisma.refreshToken.delete({ where: { id: stored.id } }),
+    prisma.refreshToken.deleteMany({
+      where: { userId: stored.userId, expiresAt: { lt: new Date() } },
+    }),
+  ])
   const newRefreshToken = await createRefreshToken(stored.userId)
   const accessToken = generateAccessToken(stored.userId, stored.user.role)
 

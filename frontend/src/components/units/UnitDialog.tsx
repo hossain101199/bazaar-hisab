@@ -15,7 +15,7 @@ import { unitsService } from "@/services/units.service";
 import { selectIsAdmin, useAuthStore } from "@/store/auth.store";
 import type { Unit } from "@/types";
 import { useFormik } from "formik";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { toast } from "sonner";
 import * as Yup from "yup";
 
@@ -54,7 +54,6 @@ const selectClass =
 export function UnitDialog({ open, onClose, onSuccess, unit }: Props) {
   const isAdmin = useAuthStore(selectIsAdmin);
   const isEdit = !!unit;
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const formik = useFormik({
     initialValues: {
@@ -65,8 +64,7 @@ export function UnitDialog({ open, onClose, onSuccess, unit }: Props) {
     },
     enableReinitialize: true,
     validationSchema: schema,
-    onSubmit: async (values) => {
-      setIsSubmitting(true);
+    onSubmit: async (values, { setSubmitting, resetForm }) => {
       const groupKey = values.groupKey || null;
       const baseRatio =
         groupKey && values.baseRatio ? Number(values.baseRatio) : null;
@@ -87,14 +85,14 @@ export function UnitDialog({ open, onClose, onSuccess, unit }: Props) {
           });
           toast.success("একক তৈরি হয়েছে");
         }
-        formik.resetForm();
+        resetForm();
         onSuccess();
         onClose();
       } catch (err: unknown) {
         const { message } = extractErrorMessage(err);
         toast.error(message);
       } finally {
-        setIsSubmitting(false);
+        setSubmitting(false);
       }
     },
   });
@@ -109,6 +107,8 @@ export function UnitDialog({ open, onClose, onSuccess, unit }: Props) {
         {String(formik.errors[f])}
       </p>
     ) : null;
+
+  const { isSubmitting } = formik;
 
   return (
     <Dialog
@@ -195,8 +195,8 @@ export function UnitDialog({ open, onClose, onSuccess, unit }: Props) {
             >
               বাতিল
             </Button>
-            <Button type="submit" className="flex-1" disabled={isSubmitting}>
-              {isSubmitting ? "সংরক্ষণ হচ্ছে..." : "সংরক্ষণ করুন"}
+            <Button type="submit" className="flex-1" loading={isSubmitting}>
+              সংরক্ষণ করুন
             </Button>
           </div>
         </form>

@@ -13,9 +13,11 @@ import {
 import { extractErrorMessage } from "@/lib/error-handler";
 import { purchasesService } from "@/services/purchases.service";
 import type { Product, Purchase } from "@/types";
+import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { useFormik } from "formik";
 import { ChevronLeft, Plus, Trash2 } from "lucide-react";
+import { useRef } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import * as Yup from "yup";
@@ -43,7 +45,7 @@ const schema = Yup.object({
     )
     .test("not-future", "ভবিষ্যতের তারিখ দিতে পারবেন না", (value) => {
       if (!value) return true;
-      const todayStr = new Date().toLocaleDateString('en-CA'); // yyyy-MM-dd in local time
+      const todayStr = new Date().toLocaleDateString('en-CA');
       return value <= todayStr;
     }),
   note: Yup.string(),
@@ -82,7 +84,14 @@ interface Props {
 
 export function PurchaseForm({ products, purchase, onCancel }: Props) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const isEdit = !!purchase;
+
+  // Stable keys for item cards — avoids React unmount/remount when removing mid-list items
+  const nextKey = useRef(0)
+  const itemKeys = useRef<number[]>(
+    (purchase?.items ?? [emptyItem]).map(() => nextKey.current++)
+  )
 
   const initialItems: ItemValue[] = purchase?.items.map((item) => ({
     productId: item.product.id,
@@ -113,10 +122,14 @@ export function PurchaseForm({ products, purchase, onCancel }: Props) {
         if (isEdit) {
           await purchasesService.update(purchase!.id, payload);
           toast.success("বাজার আপডেট হয়েছে");
+          // Invalidate this specific purchase so detail view shows fresh data
+          queryClient.invalidateQueries({ queryKey: ['purchase', purchase!.id] })
         } else {
           await purchasesService.create(payload);
           toast.success("বাজার সংরক্ষণ হয়েছে");
         }
+        queryClient.invalidateQueries({ queryKey: ['purchases'] })
+        queryClient.invalidateQueries({ queryKey: ['summary'] })
         router.replace("/purchases");
       } catch (err: unknown) {
         const { message } = extractErrorMessage(err);
@@ -133,13 +146,15 @@ export function PurchaseForm({ products, purchase, onCancel }: Props) {
     0,
   );
 
-  const addItem = () => formik.setFieldValue("items", [...items, emptyItem]);
+  const addItem = () => {
+    itemKeys.current = [...itemKeys.current, nextKey.current++]
+    formik.setFieldValue("items", [...items, emptyItem])
+  }
 
-  const removeItem = (i: number) =>
-    formik.setFieldValue(
-      "items",
-      items.filter((_, idx) => idx !== i),
-    );
+  const removeItem = (i: number) => {
+    itemKeys.current = itemKeys.current.filter((_, idx) => idx !== i)
+    formik.setFieldValue("items", items.filter((_, idx) => idx !== i))
+  }
 
   const setItem = (
     i: number,
@@ -169,6 +184,7 @@ export function PurchaseForm({ products, purchase, onCancel }: Props) {
         <button
           type="button"
           onClick={onCancel ?? (() => router.back())}
+          aria-label="ফিরে যান"
           className="text-muted-foreground"
         >
           <ChevronLeft className="h-5 w-5" />
@@ -209,12 +225,7 @@ export function PurchaseForm({ products, purchase, onCancel }: Props) {
 
       {/* Items */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="font-semibold">পণ্য তালিকা</h2>
-          <Button type="button" size="sm" variant="outline" onClick={addItem}>
-            <Plus className="h-3.5 w-3.5 mr-1" /> পণ্য যোগ করুন
-          </Button>
-        </div>
+        <h2 className="font-semibold">পণ্য তালিকা</h2>
 
         {typeof formik.errors.items === "string" && (
           <p className="text-destructive text-sm">{formik.errors.items}</p>
@@ -228,7 +239,7 @@ export function PurchaseForm({ products, purchase, onCancel }: Props) {
               : null;
 
           return (
-            <Card key={i} className="border-border shadow-sm">
+            <Card key={itemKeys.current[i]} className="border-border shadow-sm">
               <CardContent className="p-0">
                 {/* Card header */}
                 <div className="flex items-center justify-between px-3 py-2 border-b bg-secondary/50 rounded-t-lg">
@@ -244,6 +255,7 @@ export function PurchaseForm({ products, purchase, onCancel }: Props) {
                     <button
                       type="button"
                       onClick={() => removeItem(i)}
+                      aria-label={`পণ্য #${i + 1} সরিয়ে দিন`}
                       className="text-destructive/70 hover:text-destructive transition-colors"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -323,6 +335,16 @@ export function PurchaseForm({ products, purchase, onCancel }: Props) {
             </Card>
           );
         })}
+
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={addItem}
+          className="w-full"
+        >
+          <Plus className="h-3.5 w-3.5 mr-1" /> পণ্য যোগ করুন
+        </Button>
       </div>
 
       {/* Summary + Submit */}
@@ -338,10 +360,10 @@ export function PurchaseForm({ products, purchase, onCancel }: Props) {
         </div>
         <Button
           type="submit"
-          disabled={formik.isSubmitting}
+          loading={formik.isSubmitting}
           className="min-w-28"
         >
-          {formik.isSubmitting ? "সংরক্ষণ হচ্ছে..." : "সংরক্ষণ করুন"}
+          সংরক্ষণ করুন
         </Button>
       </div>
     </form>

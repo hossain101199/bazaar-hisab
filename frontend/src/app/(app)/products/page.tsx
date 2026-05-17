@@ -3,6 +3,9 @@
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { EmptyState } from '@/components/ui/empty-state'
+import { ErrorState } from '@/components/ui/error-state'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ProductDialog } from '@/components/products/ProductDialog'
 import { extractErrorMessage } from '@/lib/error-handler'
@@ -11,8 +14,8 @@ import { unitsService } from '@/services/units.service'
 import { selectIsAdmin, useAuthStore } from '@/store/auth.store'
 import type { Product, Unit } from '@/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Pencil, Plus, Trash2 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { Package, Pencil, Plus, Trash2 } from 'lucide-react'
+import { useState } from 'react'
 import { toast } from 'sonner'
 
 interface ProductRowProps {
@@ -41,18 +44,23 @@ function ProductRow({ product: p, isAdmin, onEdit, onDelete }: ProductRowProps) 
       </div>
       {p.type === 'USER' && (
         <div className="flex gap-1 shrink-0">
-          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => onEdit(p)}>
+          <Button size="icon" variant="ghost" className="h-8 w-8" aria-label={`"${p.name}" সম্পাদনা করুন`} onClick={() => onEdit(p)}>
             <Pencil className="h-3.5 w-3.5" />
           </Button>
-          <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => onDelete(p)}>
+          <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:text-destructive" aria-label={`"${p.name}" মুছুন`} onClick={() => onDelete(p)}>
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </div>
       )}
       {p.type === 'SYSTEM' && isAdmin && (
-        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => onEdit(p)}>
-          <Pencil className="h-3.5 w-3.5" />
-        </Button>
+        <div className="flex gap-1 shrink-0">
+          <Button size="icon" variant="ghost" className="h-8 w-8" aria-label={`"${p.name}" সম্পাদনা করুন`} onClick={() => onEdit(p)}>
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
+          <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:text-destructive" aria-label={`"${p.name}" মুছুন`} onClick={() => onDelete(p)}>
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
       )}
     </div>
   )
@@ -63,22 +71,19 @@ export default function ProductsPage() {
   const isAdmin = useAuthStore(selectIsAdmin)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editTarget, setEditTarget] = useState<Product | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<Product | null>(null)
 
-  const { data: products = [], isLoading: productsLoading, isError: productsError } =
+  const { data: products = [], isLoading: productsLoading, isError: productsError, refetch: refetchProducts } =
     useQuery<Product[]>({
       queryKey: ['products'],
-      queryFn: () => productsService.list().then(r => r.data.products),
+      queryFn: () => productsService.list(),
     })
 
-  const { data: units = [], isLoading: unitsLoading, isError: unitsError } =
+  const { data: units = [], isLoading: unitsLoading, isError: unitsError, refetch: refetchUnits } =
     useQuery<Unit[]>({
       queryKey: ['units'],
-      queryFn: () => unitsService.list().then(r => r.data.units),
+      queryFn: () => unitsService.list(),
     })
-
-  useEffect(() => {
-    if (productsError || unitsError) toast.error('ডেটা লোড ব্যর্থ হয়েছে')
-  }, [productsError, unitsError])
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => productsService.delete(id),
@@ -93,13 +98,15 @@ export default function ProductsPage() {
   })
 
   const loading = productsLoading || unitsLoading
+  const hasError = productsError || unitsError
 
   const openAdd = () => { setEditTarget(null); setDialogOpen(true) }
   const openEdit = (p: Product) => { setEditTarget(p); setDialogOpen(true) }
 
-  const handleDelete = (p: Product) => {
-    if (!confirm(`"${p.name}" মুছে ফেলবেন?`)) return
-    deleteMutation.mutate(p.id)
+  const handleDelete = () => {
+    if (!deleteTarget) return
+    deleteMutation.mutate(deleteTarget.id)
+    setDeleteTarget(null)
   }
 
   const systemProducts = products.filter(p => p.type === 'SYSTEM')
@@ -120,28 +127,42 @@ export default function ProductsPage() {
         </div>
       )}
 
-      {!loading && systemProducts.length > 0 && (
+      {hasError && !loading && (
+        <Card>
+          <CardContent className="p-0">
+            <ErrorState
+              compact
+              onRetry={() => { refetchProducts(); refetchUnits() }}
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {!loading && !hasError && systemProducts.length > 0 && (
         <Card>
           <CardContent className="px-4 py-1">
             <p className="text-xs font-semibold text-muted-foreground py-2">সিস্টেম পণ্য</p>
             {systemProducts.map(p => (
-              <ProductRow key={p.id} product={p} isAdmin={isAdmin} onEdit={openEdit} onDelete={handleDelete} />
+              <ProductRow key={p.id} product={p} isAdmin={isAdmin} onEdit={openEdit} onDelete={setDeleteTarget} />
             ))}
           </CardContent>
         </Card>
       )}
 
-      {!loading && (
+      {!loading && !hasError && (
         <Card>
           <CardContent className="px-4 py-1">
             <p className="text-xs font-semibold text-muted-foreground py-2">আমার পণ্য</p>
             {userProducts.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">
-                কোনো পণ্য নেই — &quot;নতুন পণ্য&quot; বাটনে ক্লিক করুন
-              </p>
+              <EmptyState
+                icon={Package}
+                title="কোনো পণ্য নেই"
+                description='"নতুন পণ্য" বাটনে ক্লিক করে পণ্য যোগ করুন'
+                className="py-8"
+              />
             ) : (
               userProducts.map(p => (
-                <ProductRow key={p.id} product={p} isAdmin={isAdmin} onEdit={openEdit} onDelete={handleDelete} />
+                <ProductRow key={p.id} product={p} isAdmin={isAdmin} onEdit={openEdit} onDelete={setDeleteTarget} />
               ))
             )}
           </CardContent>
@@ -154,6 +175,15 @@ export default function ProductsPage() {
         onSuccess={() => queryClient.invalidateQueries({ queryKey: ['products'] })}
         units={units}
         product={editTarget}
+      />
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        title={`"${deleteTarget?.name}" মুছে ফেলবেন?`}
+        description="এই কাজটি আর পূর্বাবস্থায় ফেরানো যাবে না।"
+        loading={deleteMutation.isPending}
       />
     </div>
   )

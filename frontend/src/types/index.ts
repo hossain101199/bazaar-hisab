@@ -1,5 +1,6 @@
 export type Role = 'ADMIN' | 'USER'
 export type UnitType = 'SYSTEM' | 'USER'
+export type ProductType = 'SYSTEM' | 'USER'
 
 export interface User {
   id: number
@@ -26,7 +27,7 @@ export interface ProductUnit {
 export interface Product {
   id: number
   name: string
-  type: UnitType
+  type: ProductType
   userId: number | null
   unitId: number
   unit: ProductUnit

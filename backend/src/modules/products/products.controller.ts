@@ -52,7 +52,7 @@ export async function updateProduct(
       return;
     }
     const { name, unitId } = req.body as UpdateProductInput;
-    const product = await svcUpdate(req.userId!, id, { name, unitId });
+    const product = await svcUpdate(req.userId!, req.userRole ?? "USER", id, { name, unitId });
     res.json({ success: true, product });
   } catch (err) {
     next(err);
@@ -70,7 +70,7 @@ export async function deleteProduct(
       res.status(400).json({ success: false, message: "Invalid id" });
       return;
     }
-    await svcDelete(req.userId!, id);
+    await svcDelete(req.userId!, req.userRole ?? "USER", id);
     res.json({ success: true, message: "পণ্য মুছে ফেলা হয়েছে" });
   } catch (err) {
     next(err);
