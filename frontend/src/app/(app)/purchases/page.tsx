@@ -14,7 +14,7 @@ import type { Purchase } from '@/types'
 import { useQuery } from '@tanstack/react-query'
 import { format } from 'date-fns'
 import { bn } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, Plus, Search, ShoppingCart } from 'lucide-react'
+import { ChevronLeft, ChevronRight, MapPin, Plus, Search, ShoppingCart } from 'lucide-react'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
@@ -119,6 +119,11 @@ export default function PurchasesPage() {
                 </p>
                 <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                   <Badge variant="secondary" className="text-xs px-1.5 py-0">{p.items.length} পণ্য</Badge>
+                  {p.shop && (
+                    <Badge variant="outline" className="text-xs px-1.5 py-0 gap-1">
+                      <MapPin className="h-2.5 w-2.5" />{p.shop.name}
+                    </Badge>
+                  )}
                   {p.note && (
                     <span className="text-xs text-muted-foreground truncate max-w-[160px]">{p.note}</span>
                   )}

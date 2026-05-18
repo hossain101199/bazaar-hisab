@@ -8,27 +8,36 @@ import { selectIsAdmin, useAuthStore } from "@/store/auth.store";
 import {
   BarChart2,
   Home,
+  LineChart,
   LogOut,
   Package,
   Ruler,
   Settings,
   ShoppingCart,
+  Store,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useMemo } from "react";
 
-const navItems = [
+type NavItem = {
+  href: string
+  icon: React.ElementType
+  label: string
+  mobileHidden?: boolean
+}
+
+const navItems: NavItem[] = [
   { href: "/dashboard", icon: Home, label: "হোম" },
   { href: "/purchases", icon: ShoppingCart, label: "ক্রয়" },
   { href: "/products", icon: Package, label: "পণ্য" },
   { href: "/units", icon: Ruler, label: "একক" },
+  { href: "/shops", icon: Store, label: "দোকান", mobileHidden: true },
   { href: "/report", icon: BarChart2, label: "রিপোর্ট" },
+  { href: "/analysis", icon: LineChart, label: "বিশ্লেষণ" },
 ];
 
-const adminItem = { href: "/admin", icon: Settings, label: "অ্যাডমিন" };
-
-type NavItem = (typeof navItems)[0];
+const adminItem: NavItem = { href: "/admin", icon: Settings, label: "অ্যাডমিন", mobileHidden: true };
 
 function NavLink({ href, icon: Icon, label }: NavItem) {
   const pathname = usePathname();
@@ -60,6 +69,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const allNavItems = useMemo(
     () => [...navItems, ...(isAdmin ? [adminItem] : [])],
     [isAdmin],
+  );
+
+  const mobileNavItems = useMemo(
+    () => allNavItems.filter(item => !item.mobileHidden),
+    [allNavItems],
   );
 
   // Derive current page title from active route for mobile header
@@ -160,9 +174,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       >
         <div
           className="grid h-16"
-          style={{ gridTemplateColumns: `repeat(${allNavItems.length}, 1fr)` }}
+          style={{ gridTemplateColumns: `repeat(${mobileNavItems.length}, 1fr)` }}
         >
-          {allNavItems.map(({ href, icon: Icon, label }) => {
+          {mobileNavItems.map(({ href, icon: Icon, label }) => {
             const active = pathname === href || pathname.startsWith(href + "/");
             return (
               <Link
@@ -175,7 +189,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 )}
               >
                 <Icon className={cn("h-5 w-5 transition-transform", active && "scale-110")} />
-                <span className={cn("transition-all", active && "font-semibold")}>{label}</span>
+                <span className={cn("transition-all w-full text-center truncate px-0.5", active && "font-semibold")}>{label}</span>
               </Link>
             );
           })}

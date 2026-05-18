@@ -54,6 +54,7 @@ model User {
   products      Product[]
   purchases     Purchase[]
   units         Unit[]
+  shops         Shop[]
   refreshTokens RefreshToken[]
 }
 
@@ -68,6 +69,21 @@ model RefreshToken {
   @@index([userId])
 }
 
+// SYSTEM দোকান: userId = null — Admin তৈরি, সব ব্যবহারকারী দেখতে পান
+// USER দোকান:   userId = id — শুধু নিজে দেখবেন
+model Shop {
+  id        Int        @id @default(autoincrement())
+  name      String
+  address   String?
+  type      EntityType @default(USER)
+  userId    Int?
+  user      User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purchases Purchase[]
+
+  @@unique([name, userId])
+  @@index([userId])
+}
+
 model Purchase {
   id          Int            @id @default(autoincrement())
   date        DateTime
@@ -75,10 +91,14 @@ model Purchase {
   totalAmount Float          @default(0)
   userId      Int
   user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shopId      Int?
+  shop        Shop?          @relation(fields: [shopId], references: [id], onDelete: SetNull)
   items       PurchaseItem[]
   createdAt   DateTime       @default(now())
 
   @@index([userId])
+  @@index([shopId])
+  @@index([userId, date])
 }
 
 model PurchaseItem {
@@ -92,4 +112,5 @@ model PurchaseItem {
   purchase     Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
 
   @@index([productId])
+  @@index([purchaseId])
 }

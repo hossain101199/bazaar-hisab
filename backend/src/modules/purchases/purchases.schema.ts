@@ -6,20 +6,22 @@ const itemSchema = z.object({
   totalPrice: z.number().positive("totalPrice > 0 হতে হবে"),
 });
 
+const dateField = z
+  .string()
+  .refine((d) => !isNaN(new Date(d).getTime()), "বৈধ date দিন (ISO 8601)")
+  .refine((d) => new Date(d) <= new Date(), "ভবিষ্যতের তারিখ দেওয়া যাবে না");
+
 export const createPurchaseSchema = z.object({
-  date: z
-    .string()
-    .refine((d) => !isNaN(new Date(d).getTime()), "বৈধ date দিন (ISO 8601)"),
+  date: dateField,
   note: z.string().optional(),
+  shopId: z.number().int().positive().optional(),
   items: z.array(itemSchema).min(1, "কমপক্ষে একটি পণ্য যোগ করুন"),
 });
 
 export const updatePurchaseSchema = z.object({
-  date: z
-    .string()
-    .refine((d) => !isNaN(new Date(d).getTime()), "বৈধ date দিন (ISO 8601)")
-    .optional(),
+  date: dateField.optional(),
   note: z.string().optional(),
+  shopId: z.number().int().positive().nullable().optional(),
   items: z.array(itemSchema).min(1, "কমপক্ষে একটি পণ্য যোগ করুন").optional(),
 });
 

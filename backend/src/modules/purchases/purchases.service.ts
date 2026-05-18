@@ -22,6 +22,7 @@ const purchaseSelect = {
   note: true,
   totalAmount: true,
   createdAt: true,
+  shop: { select: { id: true, name: true } },
   items: { select: itemSelect },
 } as const;
 
@@ -46,6 +47,14 @@ function validateItems(items: ItemInput[]) {
 
 function calcTotal(items: ItemInput[]) {
   return items.reduce((sum, item) => sum + item.totalPrice, 0);
+}
+
+async function validateShopAccess(userId: number, shopId: number) {
+  const shop = await prisma.shop.findUnique({ where: { id: shopId }, select: { type: true, userId: true } });
+  if (!shop) throw new AppError("দোকান পাওয়া যায়নি", 404);
+  if (shop.type !== "SYSTEM" && shop.userId !== userId) {
+    throw new AppError("অননুমোদিত দোকান ব্যবহার", 403);
+  }
 }
 
 async function validateProductAccess(userId: number, productIds: number[]) {
@@ -123,16 +132,17 @@ export async function getPurchase(userId: number, purchaseId: number) {
 
 export async function createPurchase(
   userId: number,
-  data: { date: string; note?: string; items: ItemInput[] },
+  data: { date: string; note?: string; shopId?: number; items: ItemInput[] },
 ) {
   validateItems(data.items);
-  const productIds = data.items.map((i) => i.productId);
-  await validateProductAccess(userId, productIds);
+  await validateProductAccess(userId, data.items.map((i) => i.productId));
+  if (data.shopId) await validateShopAccess(userId, data.shopId);
 
   return prisma.purchase.create({
     data: {
       date: new Date(data.date),
       note: data.note ?? null,
+      shopId: data.shopId ?? null,
       totalAmount: calcTotal(data.items),
       userId,
       items: { create: data.items.map(buildItemData) },
@@ -146,7 +156,7 @@ export async function createPurchase(
 export async function updatePurchase(
   userId: number,
   purchaseId: number,
-  data: { date?: string; note?: string; items?: ItemInput[] },
+  data: { date?: string; note?: string; shopId?: number | null; items?: ItemInput[] },
 ) {
   const existing = await prisma.purchase.findFirst({ where: { id: purchaseId, userId } });
   if (!existing) throw new AppError("ক্রয় পাওয়া যায়নি", 404);
@@ -155,6 +165,7 @@ export async function updatePurchase(
     validateItems(data.items);
     await validateProductAccess(userId, data.items.map((i) => i.productId));
   }
+  if (data.shopId) await validateShopAccess(userId, data.shopId);
 
   const totalAmount = data.items !== undefined ? calcTotal(data.items) : existing.totalAmount;
 
@@ -168,6 +179,7 @@ export async function updatePurchase(
       data: {
         ...(data.date !== undefined && { date: new Date(data.date) }),
         ...(data.note !== undefined && { note: data.note }),
+        ...(data.shopId !== undefined && { shopId: data.shopId }),
         totalAmount,
         ...(data.items !== undefined && { items: { create: data.items.map(buildItemData) } }),
       },
@@ -214,6 +226,49 @@ export async function getSummary(userId: number, year?: number) {
   };
 }
 
+// ─── Top Products ────────────────────────────────────────────────────────────
+
+export async function getTopProducts(
+  userId: number,
+  opts: { year?: number; month?: string; limit?: number },
+) {
+  const { year, month, limit = 10 } = opts;
+
+  let dateRange: { gte: Date; lt: Date } | undefined;
+  if (month) {
+    const [y, m] = month.split("-").map(Number);
+    dateRange = { gte: new Date(y, m - 1, 1), lt: new Date(y, m, 1) };
+  } else if (year) {
+    dateRange = { gte: new Date(year, 0, 1), lt: new Date(year + 1, 0, 1) };
+  }
+
+  const grouped = await prisma.purchaseItem.groupBy({
+    by: ["productId"],
+    where: { purchase: { userId, ...(dateRange && { date: dateRange }) } },
+    _sum: { totalPrice: true, quantity: true },
+    _count: { id: true },
+    orderBy: { _sum: { totalPrice: "desc" } },
+    take: limit,
+  });
+
+  if (grouped.length === 0) return [];
+
+  const productIds = grouped.map((i) => i.productId);
+  const products = await prisma.product.findMany({
+    where: { id: { in: productIds } },
+    select: { id: true, name: true, unit: { select: { name: true } } },
+  });
+
+  const productMap = new Map(products.map((p) => [p.id, p]));
+
+  return grouped.map((item) => ({
+    product: productMap.get(item.productId)!,
+    totalSpent: item._sum.totalPrice ?? 0,
+    totalQuantity: item._sum.quantity ?? 0,
+    purchaseCount: item._count.id,
+  }));
+}
+
 // ─── Price Trend ─────────────────────────────────────────────────────────────
 
 export async function getPriceTrend(userId: number, productId: number) {
@@ -235,5 +290,95 @@ export async function getPriceTrend(userId: number, productId: number) {
       date: item.purchase.date,
       pricePerUnit: item.pricePerUnit,
     })),
+  };
+}
+
+// ─── Shop Report ─────────────────────────────────────────────────────────────
+
+export async function getShopReport(
+  userId: number,
+  opts: { year?: number; month?: string },
+) {
+  const { year, month } = opts;
+
+  let dateRange: { gte: Date; lt: Date } | undefined;
+  if (month) {
+    const [y, m] = month.split("-").map(Number);
+    dateRange = { gte: new Date(y, m - 1, 1), lt: new Date(y, m, 1) };
+  } else if (year) {
+    dateRange = { gte: new Date(year, 0, 1), lt: new Date(year + 1, 0, 1) };
+  }
+
+  // DB-তেই group + sum — JS memory-তে সব row টানা হয় না
+  const grouped = await prisma.purchase.groupBy({
+    by: ["shopId"],
+    where: {
+      userId,
+      shopId: { not: null },
+      ...(dateRange && { date: dateRange }),
+    },
+    _sum: { totalAmount: true },
+    _count: { id: true },
+    orderBy: { _sum: { totalAmount: "desc" } },
+  });
+
+  if (grouped.length === 0) return [];
+
+  const shopIds = grouped.map((g) => g.shopId!);
+  const shops = await prisma.shop.findMany({
+    where: { id: { in: shopIds } },
+    select: { id: true, name: true },
+  });
+
+  const shopMap = new Map(shops.map((s) => [s.id, s]));
+
+  return grouped
+    .filter((g) => shopMap.has(g.shopId!))
+    .map((g) => ({
+      shop: shopMap.get(g.shopId!)!,
+      totalSpent: g._sum.totalAmount ?? 0,
+      purchaseCount: g._count.id,
+    }));
+}
+
+// ─── Product By Shop ─────────────────────────────────────────────────────────
+
+export async function getProductByShop(userId: number, productId: number) {
+  const product = await prisma.product.findFirst({
+    where: { id: productId, OR: [{ type: "SYSTEM" }, { userId }] },
+    select: { id: true, name: true, unit: { select: { name: true } } },
+  });
+  if (!product) throw new AppError("পণ্য পাওয়া যায়নি", 404);
+
+  const items = await prisma.purchaseItem.findMany({
+    where: { productId, purchase: { userId } },
+    select: {
+      pricePerUnit: true,
+      purchase: { select: { date: true, shopId: true, shop: { select: { id: true, name: true } } } },
+    },
+    orderBy: { purchase: { date: "asc" } },
+  });
+
+  const map = new Map<number, { shop: { id: number; name: string }; prices: number[]; lastDate: Date }>();
+  for (const item of items) {
+    if (!item.purchase.shop || !item.purchase.shopId) continue;
+    let entry = map.get(item.purchase.shopId);
+    if (!entry) {
+      entry = { shop: item.purchase.shop, prices: [], lastDate: item.purchase.date };
+      map.set(item.purchase.shopId, entry);
+    }
+    entry.prices.push(item.pricePerUnit);
+    if (item.purchase.date > entry.lastDate) entry.lastDate = item.purchase.date;
+  }
+
+  return {
+    product,
+    shops: Array.from(map.values()).map((entry) => ({
+      shop: entry.shop,
+      avgPricePerUnit: entry.prices.reduce((s, p) => s + p, 0) / entry.prices.length,
+      purchaseCount: entry.prices.length,
+      lastPricePerUnit: entry.prices[entry.prices.length - 1],
+      lastDate: entry.lastDate,
+    })).sort((a, b) => a.avgPricePerUnit - b.avgPricePerUnit),
   };
 }

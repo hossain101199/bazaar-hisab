@@ -1,6 +1,7 @@
 export type Role = 'ADMIN' | 'USER'
 export type UnitType = 'SYSTEM' | 'USER'
 export type ProductType = 'SYSTEM' | 'USER'
+export type ShopType = 'SYSTEM' | 'USER'
 
 export interface User {
   id: number
@@ -34,6 +35,14 @@ export interface Product {
   lastPrice: number | null
 }
 
+export interface Shop {
+  id: number
+  name: string
+  address: string | null
+  type: ShopType
+  userId: number | null
+}
+
 export interface PurchaseItemProduct {
   id: number
   name: string
@@ -54,6 +63,7 @@ export interface Purchase {
   note: string | null
   totalAmount: number
   createdAt: string
+  shop?: { id: number; name: string } | null
   items: PurchaseItem[]
 }
 
@@ -69,6 +79,42 @@ export interface MonthlySummary {
   month: string
   totalAmount: number
   purchaseCount: number
+}
+
+export interface TopProduct {
+  product: { id: number; name: string; unit: { name: string } }
+  totalSpent: number
+  totalQuantity: number
+  purchaseCount: number
+}
+
+export interface PriceTrendPoint {
+  date: string
+  pricePerUnit: number
+}
+
+export interface PriceTrend {
+  product: { id: number; name: string; unit: { name: string } }
+  trend: PriceTrendPoint[]
+}
+
+export interface ShopSummary {
+  shop: { id: number; name: string }
+  totalSpent: number
+  purchaseCount: number
+}
+
+export interface ProductByShopEntry {
+  shop: { id: number; name: string }
+  avgPricePerUnit: number
+  purchaseCount: number
+  lastPricePerUnit: number
+  lastDate: string
+}
+
+export interface ProductByShop {
+  product: { id: number; name: string; unit: { name: string } }
+  shops: ProductByShopEntry[]
 }
 
 export interface SummaryReport {

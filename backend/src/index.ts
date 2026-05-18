@@ -10,6 +10,7 @@ import adminRoutes from "./modules/admin/admin.routes";
 import authRoutes from "./modules/auth/auth.routes";
 import productRoutes from "./modules/products/products.routes";
 import purchaseRoutes from "./modules/purchases/purchases.routes";
+import shopRoutes from "./modules/shops/shops.routes";
 import unitRoutes from "./modules/units/units.routes";
 import prisma from "./prisma";
 
@@ -56,10 +57,14 @@ app.get("/", (_, res) => {
 
 const API_PREFIX = "/api";
 
-app.use(`${API_PREFIX}/auth`, authLimiter, authRoutes);
+// authLimiter applies only to the write/credential endpoints — not refresh or me.
+app.use(`${API_PREFIX}/auth/login`, authLimiter);
+app.use(`${API_PREFIX}/auth/register`, authLimiter);
+app.use(`${API_PREFIX}/auth`, authRoutes);
 app.use(`${API_PREFIX}/units`, unitRoutes);
 app.use(`${API_PREFIX}/products`, productRoutes);
 app.use(`${API_PREFIX}/purchases`, purchaseRoutes);
+app.use(`${API_PREFIX}/shops`, shopRoutes);
 app.use(`${API_PREFIX}/admin`, adminRoutes);
 
 app.use(errorMiddleware);

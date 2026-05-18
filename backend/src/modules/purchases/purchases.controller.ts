@@ -2,14 +2,30 @@ import { NextFunction, Response } from "express";
 import { AuthRequest } from "../../middleware/auth.middleware";
 import { parsePositiveInt } from "../../utils/parseId";
 import { sanitizeSearch } from "../../utils/sanitize";
+
+function parseReportParams(query: Record<string, unknown>): { year: number | undefined; month: string | undefined; error?: string } {
+  const month = query.month as string | undefined;
+  if (month && !/^\d{4}-\d{2}$/.test(month)) {
+    return { year: undefined, month: undefined, error: "month ফরম্যাট হবে YYYY-MM" };
+  }
+  let year: number | undefined;
+  if (!month && query.year !== undefined) {
+    year = parseInt(query.year as string);
+    if (isNaN(year)) return { year: undefined, month: undefined, error: "বৈধ year দিন" };
+  }
+  return { year, month };
+}
 import {
   getPurchase,
   getSummary,
+  getTopProducts as svcTopProducts,
   listPurchases,
   createPurchase as svcCreate,
   deletePurchase as svcDelete,
   getPriceTrend as svcTrend,
   updatePurchase as svcUpdate,
+  getShopReport as svcShopReport,
+  getProductByShop as svcProductByShop,
 } from "./purchases.service";
 import type { CreatePurchaseInput, UpdatePurchaseInput } from "./purchases.schema";
 
@@ -62,8 +78,8 @@ export async function createPurchase(
   next: NextFunction,
 ) {
   try {
-    const { date, note, items } = req.body as CreatePurchaseInput;
-    const purchase = await svcCreate(req.userId!, { date, note, items });
+    const { date, note, shopId, items } = req.body as CreatePurchaseInput;
+    const purchase = await svcCreate(req.userId!, { date, note, shopId, items });
     res.status(201).json({ success: true, purchase });
   } catch (err) {
     next(err);
@@ -82,8 +98,8 @@ export async function updatePurchase(
       return;
     }
 
-    const { date, note, items } = req.body as UpdatePurchaseInput;
-    const purchase = await svcUpdate(req.userId!, id, { date, note, items });
+    const { date, note, shopId, items } = req.body as UpdatePurchaseInput;
+    const purchase = await svcUpdate(req.userId!, id, { date, note, shopId, items });
     res.json({ success: true, purchase });
   } catch (err) {
     next(err);
@@ -129,6 +145,24 @@ export async function getSummaryReport(
   }
 }
 
+export async function getTopProductsReport(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const limit = Math.min(20, Math.max(1, parseInt(req.query.limit as string) || 10));
+    const { year: parsedYear, month, error } = parseReportParams(req.query as Record<string, unknown>);
+    if (error) { res.status(400).json({ success: false, message: error }); return; }
+    const year = parsedYear ?? (!month ? new Date().getFullYear() : undefined);
+
+    const result = await svcTopProducts(req.userId!, { year, month, limit });
+    res.json({ success: true, products: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function getPriceTrend(
   req: AuthRequest,
   res: Response,
@@ -141,6 +175,41 @@ export async function getPriceTrend(
       return;
     }
     const result = await svcTrend(req.userId!, productId);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getShopReport(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const { year: parsedYear, month, error } = parseReportParams(req.query as Record<string, unknown>);
+    if (error) { res.status(400).json({ success: false, message: error }); return; }
+    const year = parsedYear ?? (!month ? new Date().getFullYear() : undefined);
+
+    const result = await svcShopReport(req.userId!, { year, month });
+    res.json({ success: true, shops: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getProductByShop(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const productId = parsePositiveInt(req.params.productId);
+    if (!productId) {
+      res.status(400).json({ success: false, message: "Invalid productId" });
+      return;
+    }
+    const result = await svcProductByShop(req.userId!, productId);
     res.json({ success: true, ...result });
   } catch (err) {
     next(err);

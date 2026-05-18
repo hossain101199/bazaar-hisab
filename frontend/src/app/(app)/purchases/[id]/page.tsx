@@ -14,7 +14,7 @@ import type { Product, Purchase } from '@/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { format } from 'date-fns'
 import { bn } from 'date-fns/locale'
-import { ChevronLeft, Pencil, Trash2 } from 'lucide-react'
+import { ChevronLeft, MapPin, Pencil, Trash2 } from 'lucide-react'
 import { useParams, useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { toast } from 'sonner'
@@ -133,6 +133,11 @@ export default function PurchaseDetailPage() {
           <h1 className="text-xl font-bold">
             {format(new Date(purchase.date), 'dd MMMM yyyy', { locale: bn })}
           </h1>
+          {purchase.shop && (
+            <p className="text-sm text-muted-foreground flex items-center gap-1">
+              <MapPin className="h-3.5 w-3.5 shrink-0" />{purchase.shop.name}
+            </p>
+          )}
           {purchase.note && <p className="text-sm text-muted-foreground">{purchase.note}</p>}
         </div>
       </div>

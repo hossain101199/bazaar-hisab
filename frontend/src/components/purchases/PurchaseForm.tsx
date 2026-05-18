@@ -12,11 +12,12 @@ import {
 } from "@/lib/validators";
 import { extractErrorMessage } from "@/lib/error-handler";
 import { purchasesService } from "@/services/purchases.service";
-import type { Product, Purchase } from "@/types";
-import { useQueryClient } from "@tanstack/react-query";
+import { shopsService } from "@/services/shops.service";
+import type { Product, Purchase, Shop } from "@/types";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { useFormik } from "formik";
-import { ChevronLeft, Plus, Trash2 } from "lucide-react";
+import { ChevronLeft, Plus, Store, Trash2 } from "lucide-react";
 import { useRef } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -32,6 +33,7 @@ interface ItemValue {
 interface FormValues {
   date: string;
   note: string;
+  shopId: number | "";
   items: ItemValue[];
 }
 
@@ -87,6 +89,11 @@ export function PurchaseForm({ products, purchase, onCancel }: Props) {
   const queryClient = useQueryClient();
   const isEdit = !!purchase;
 
+  const { data: shops = [] } = useQuery<Shop[]>({
+    queryKey: ['shops'],
+    queryFn: () => shopsService.list(),
+  });
+
   // Stable keys for item cards — avoids React unmount/remount when removing mid-list items
   const nextKey = useRef(0)
   const itemKeys = useRef<number[]>(
@@ -105,27 +112,34 @@ export function PurchaseForm({ products, purchase, onCancel }: Props) {
         ? format(new Date(purchase.date), "yyyy-MM-dd")
         : format(new Date(), "yyyy-MM-dd"),
       note: purchase?.note ?? "",
+      shopId: purchase?.shop?.id ?? "",
       items: initialItems,
     },
     validationSchema: schema,
     onSubmit: async (values, { setSubmitting }) => {
-      const payload = {
-        date: values.date,
-        note: values.note || undefined,
-        items: values.items.map((item) => ({
-          productId: Number(item.productId),
-          quantity: Number(item.quantity),
-          totalPrice: Number(item.totalPrice),
-        })),
-      };
+      const mappedItems = values.items.map((item) => ({
+        productId: Number(item.productId),
+        quantity: Number(item.quantity),
+        totalPrice: Number(item.totalPrice),
+      }));
       try {
         if (isEdit) {
-          await purchasesService.update(purchase!.id, payload);
+          await purchasesService.update(purchase!.id, {
+            date: values.date,
+            note: values.note || undefined,
+            // null explicitly clears the shop; undefined would leave it unchanged
+            shopId: values.shopId !== "" ? Number(values.shopId) : null,
+            items: mappedItems,
+          });
           toast.success("বাজার আপডেট হয়েছে");
-          // Invalidate this specific purchase so detail view shows fresh data
           queryClient.invalidateQueries({ queryKey: ['purchase', purchase!.id] })
         } else {
-          await purchasesService.create(payload);
+          await purchasesService.create({
+            date: values.date,
+            note: values.note || undefined,
+            shopId: values.shopId !== "" ? Number(values.shopId) : undefined,
+            items: mappedItems,
+          });
           toast.success("বাজার সংরক্ষণ হয়েছে");
         }
         queryClient.invalidateQueries({ queryKey: ['purchases'] })
@@ -220,6 +234,27 @@ export function PurchaseForm({ products, purchase, onCancel }: Props) {
               {...formik.getFieldProps("note")}
             />
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Shop selector */}
+      <Card>
+        <CardContent className="p-4">
+          <Label htmlFor="shopId" className="flex items-center gap-1.5 mb-1.5">
+            <Store className="h-3.5 w-3.5 text-muted-foreground" />
+            দোকান (ঐচ্ছিক)
+          </Label>
+          <select
+            id="shopId"
+            className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-sm transition-all outline-none cursor-pointer appearance-none focus:border-ring focus:ring-2 focus:ring-ring/30 hover:border-primary/50"
+            value={formik.values.shopId}
+            onChange={(e) => formik.setFieldValue("shopId", e.target.value === "" ? "" : Number(e.target.value))}
+          >
+            <option value="">— দোকান বেছে নিন —</option>
+            {shops.map(s => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
         </CardContent>
       </Card>
 
