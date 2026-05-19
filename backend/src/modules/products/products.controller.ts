@@ -1,3 +1,4 @@
+import { Role } from "@prisma/client";
 import { NextFunction, Response } from "express";
 import { AuthRequest } from "../../middleware/auth.middleware";
 import { parsePositiveInt } from "../../utils/parseId";
@@ -29,7 +30,7 @@ export async function createProduct(
 ) {
   try {
     const { name, type, unitId } = req.body as CreateProductInput;
-    const product = await svcCreate(req.userId!, req.userRole ?? "USER", {
+    const product = await svcCreate(req.userId!, req.userRole ?? Role.USER, {
       name,
       type,
       unitId,
@@ -52,7 +53,7 @@ export async function updateProduct(
       return;
     }
     const { name, unitId } = req.body as UpdateProductInput;
-    const product = await svcUpdate(req.userId!, req.userRole ?? "USER", id, { name, unitId });
+    const product = await svcUpdate(req.userId!, req.userRole ?? Role.USER, id, { name, unitId });
     res.json({ success: true, product });
   } catch (err) {
     next(err);
@@ -70,7 +71,7 @@ export async function deleteProduct(
       res.status(400).json({ success: false, message: "Invalid id" });
       return;
     }
-    await svcDelete(req.userId!, req.userRole ?? "USER", id);
+    await svcDelete(req.userId!, req.userRole ?? Role.USER, id);
     res.json({ success: true, message: "পণ্য মুছে ফেলা হয়েছে" });
   } catch (err) {
     next(err);

@@ -126,13 +126,23 @@ export function PurchaseForm({ products, purchase, onCancel }: Props) {
         if (isEdit) {
           await purchasesService.update(purchase!.id, {
             date: values.date,
-            note: values.note || undefined,
+            // null explicitly clears an existing note; undefined would leave it unchanged
+            note: values.note || null,
             // null explicitly clears the shop; undefined would leave it unchanged
             shopId: values.shopId !== "" ? Number(values.shopId) : null,
             items: mappedItems,
           });
           toast.success("বাজার আপডেট হয়েছে");
           queryClient.invalidateQueries({ queryKey: ['purchase', purchase!.id] })
+          queryClient.invalidateQueries({ queryKey: ['purchases'] })
+          queryClient.invalidateQueries({ queryKey: ['purchases-recent'] })
+          queryClient.invalidateQueries({ queryKey: ['summary'] })
+          // Return to view mode if embedded in the detail page; otherwise navigate to detail.
+          if (onCancel) {
+            onCancel();
+          } else {
+            router.replace(`/purchases/${purchase!.id}`);
+          }
         } else {
           await purchasesService.create({
             date: values.date,
@@ -141,10 +151,11 @@ export function PurchaseForm({ products, purchase, onCancel }: Props) {
             items: mappedItems,
           });
           toast.success("বাজার সংরক্ষণ হয়েছে");
+          queryClient.invalidateQueries({ queryKey: ['purchases'] })
+          queryClient.invalidateQueries({ queryKey: ['purchases-recent'] })
+          queryClient.invalidateQueries({ queryKey: ['summary'] })
+          router.replace("/purchases");
         }
-        queryClient.invalidateQueries({ queryKey: ['purchases'] })
-        queryClient.invalidateQueries({ queryKey: ['summary'] })
-        router.replace("/purchases");
       } catch (err: unknown) {
         const { message } = extractErrorMessage(err);
         toast.error(message);

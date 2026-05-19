@@ -7,6 +7,11 @@ datasource db {
   provider = "postgresql"
 }
 
+enum Role {
+  USER
+  ADMIN
+}
+
 enum EntityType {
   SYSTEM
   USER
@@ -49,7 +54,7 @@ model User {
   name          String
   email         String         @unique
   password      String
-  role          String         @default("USER") // ADMIN | USER
+  role          Role           @default(USER)
   createdAt     DateTime       @default(now())
   products      Product[]
   purchases     Purchase[]

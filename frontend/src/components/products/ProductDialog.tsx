@@ -125,7 +125,7 @@ export function ProductDialog({ open, onClose, onSuccess, units, product }: Prop
               {...formik.getFieldProps("unitId")}
             >
               <option value="">একক বেছে নিন</option>
-              {units.map((u) => (
+              {(formik.values.type === "SYSTEM" ? units.filter(u => u.type === "SYSTEM") : units).map((u) => (
                 <option key={u.id} value={String(u.id)}>
                   {u.name}
                   {u.type === "SYSTEM" ? " ★" : ""}
@@ -148,6 +148,11 @@ export function ProductDialog({ open, onClose, onSuccess, units, product }: Prop
                 className={selectClass}
                 disabled={isSubmitting}
                 {...formik.getFieldProps("type")}
+                onChange={(e) => {
+                  formik.setFieldValue("type", e.target.value);
+                  // Clear unit selection when switching types — the unit list changes.
+                  formik.setFieldValue("unitId", "");
+                }}
               >
                 <option value="USER">ব্যক্তিগত</option>
                 <option value="SYSTEM">সিস্টেম (সবার জন্য)</option>

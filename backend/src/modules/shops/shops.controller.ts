@@ -1,3 +1,4 @@
+import { Role } from "@prisma/client";
 import { NextFunction, Response } from "express";
 import { AuthRequest } from "../../middleware/auth.middleware";
 import { parsePositiveInt } from "../../utils/parseId";
@@ -21,7 +22,7 @@ export async function getShops(req: AuthRequest, res: Response, next: NextFuncti
 export async function createShop(req: AuthRequest, res: Response, next: NextFunction) {
   try {
     const { name, address, type } = req.body as CreateShopInput;
-    const shop = await svcCreate(req.userId!, req.userRole!, { name, address, type });
+    const shop = await svcCreate(req.userId!, req.userRole ?? Role.USER, { name, address, type });
     res.status(201).json({ success: true, shop });
   } catch (err) {
     next(err);
@@ -36,7 +37,7 @@ export async function updateShop(req: AuthRequest, res: Response, next: NextFunc
       return;
     }
     const { name, address } = req.body as UpdateShopInput;
-    const shop = await svcUpdate(req.userId!, req.userRole!, id, { name, address });
+    const shop = await svcUpdate(req.userId!, req.userRole ?? Role.USER, id, { name, address });
     res.json({ success: true, shop });
   } catch (err) {
     next(err);
@@ -50,7 +51,7 @@ export async function deleteShop(req: AuthRequest, res: Response, next: NextFunc
       res.status(400).json({ success: false, message: "Invalid id" });
       return;
     }
-    await svcDelete(req.userId!, req.userRole!, id);
+    await svcDelete(req.userId!, req.userRole ?? Role.USER, id);
     res.json({ success: true, message: "দোকান মুছে ফেলা হয়েছে" });
   } catch (err) {
     next(err);

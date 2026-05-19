@@ -17,15 +17,9 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       user: null,
       login: (token, user) => {
-        if (typeof document !== 'undefined') {
-          document.cookie = `role=${user.role}; path=/; SameSite=Lax`
-        }
         set({ token, user })
       },
       logout: () => {
-        if (typeof document !== 'undefined') {
-          document.cookie = 'role=; path=/; max-age=0'
-        }
         set({ token: null, user: null })
       },
       setUser: (user) => set({ user }),
@@ -33,8 +27,10 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: "bazaar-hisab-auth",
-      // Only persist user profile — access token lives in memory only.
-      // Session is restored on mount via the httpOnly refresh token cookie.
+      // Persist the full user object for immediate rendering (greeting, admin
+      // menu) on page reload without waiting for the refresh round-trip.
+      // The access token is never persisted — it lives in memory only and is
+      // always restored via the httpOnly refresh cookie on every page load.
       partialize: (state) => ({ user: state.user }),
     },
   ),

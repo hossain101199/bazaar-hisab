@@ -13,14 +13,14 @@ const dateField = z
 
 export const createPurchaseSchema = z.object({
   date: dateField,
-  note: z.string().optional(),
+  note: z.string().max(500, "নোট সর্বোচ্চ ৫০০ অক্ষর হতে পারে").optional(),
   shopId: z.number().int().positive().optional(),
   items: z.array(itemSchema).min(1, "কমপক্ষে একটি পণ্য যোগ করুন"),
 });
 
 export const updatePurchaseSchema = z.object({
   date: dateField.optional(),
-  note: z.string().optional(),
+  note: z.string().max(500, "নোট সর্বোচ্চ ৫০০ অক্ষর হতে পারে").nullable().optional(),
   shopId: z.number().int().positive().nullable().optional(),
   items: z.array(itemSchema).min(1, "কমপক্ষে একটি পণ্য যোগ করুন").optional(),
 });

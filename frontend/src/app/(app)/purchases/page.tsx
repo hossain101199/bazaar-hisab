@@ -71,7 +71,12 @@ export default function PurchasesPage() {
             value={searchInput}
             onChange={e => {
               setSearchInput(e.target.value)
-              if (e.target.value) { setMonth(''); setPage(1) }
+              if (e.target.value) {
+                setMonth(''); setPage(1)
+              } else {
+                // Restore current month when search is cleared
+                setMonth(new Date().toISOString().slice(0, 7)); setPage(1)
+              }
             }}
             className="pl-8"
           />

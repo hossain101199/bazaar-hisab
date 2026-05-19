@@ -45,14 +45,14 @@ export async function loginUser(email: string, password: string) {
   return {
     accessToken,
     refreshToken,
-    user: { id: user.id, name: user.name, email: user.email, role: user.role },
+    user: { id: user.id, name: user.name, email: user.email, role: user.role, createdAt: user.createdAt },
   }
 }
 
 export async function rotateRefreshToken(token: string) {
   const stored = await prisma.refreshToken.findUnique({
     where: { token },
-    include: { user: { select: { id: true, name: true, email: true, role: true } } },
+    include: { user: { select: { id: true, name: true, email: true, role: true, createdAt: true } } },
   })
 
   if (!stored || stored.expiresAt < new Date()) {
@@ -60,14 +60,21 @@ export async function rotateRefreshToken(token: string) {
     throw new AppError('টোকেন অবৈধ বা মেয়াদ শেষ', 401)
   }
 
-  // Delete used token + sweep any other expired tokens for this user in one transaction.
+  // Generate new token value before the transaction so the whole rotation is atomic.
+  const newTokenValue = crypto.randomBytes(64).toString('hex')
+  const newExpiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_MS)
+
   await prisma.$transaction([
     prisma.refreshToken.delete({ where: { id: stored.id } }),
     prisma.refreshToken.deleteMany({
       where: { userId: stored.userId, expiresAt: { lt: new Date() } },
     }),
+    prisma.refreshToken.create({
+      data: { token: newTokenValue, userId: stored.userId, expiresAt: newExpiresAt },
+    }),
   ])
-  const newRefreshToken = await createRefreshToken(stored.userId)
+
+  const newRefreshToken = newTokenValue
   const accessToken = generateAccessToken(stored.userId, stored.user.role)
 
   return { accessToken, refreshToken: newRefreshToken, user: stored.user }

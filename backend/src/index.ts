@@ -28,6 +28,12 @@ const authLimiter = rateLimit({
   message: { success: false, message: "অনেক বার চেষ্টা করা হয়েছে, ১৫ মিনিট পর আবার চেষ্টা করুন" },
 });
 
+const refreshLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: process.env.NODE_ENV === 'production' ? 30 : 200,
+  message: { success: false, message: "অনেক বার চেষ্টা করা হয়েছে, কিছুক্ষণ পর আবার চেষ্টা করুন" },
+});
+
 app.use(
   helmet({
     contentSecurityPolicy: {
@@ -57,9 +63,9 @@ app.get("/", (_, res) => {
 
 const API_PREFIX = "/api";
 
-// authLimiter applies only to the write/credential endpoints — not refresh or me.
 app.use(`${API_PREFIX}/auth/login`, authLimiter);
 app.use(`${API_PREFIX}/auth/register`, authLimiter);
+app.use(`${API_PREFIX}/auth/refresh`, refreshLimiter);
 app.use(`${API_PREFIX}/auth`, authRoutes);
 app.use(`${API_PREFIX}/units`, unitRoutes);
 app.use(`${API_PREFIX}/products`, productRoutes);

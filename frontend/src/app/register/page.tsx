@@ -6,11 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { extractErrorMessage } from "@/lib/error-handler";
 import { authService } from "@/services/auth.service";
-import { selectIsAuthenticated, useAuthStore } from "@/store/auth.store";
+import { useAuthStore } from "@/store/auth.store";
 import { useFormik } from "formik";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
 import { toast } from "sonner";
 import * as Yup from "yup";
 
@@ -29,11 +28,7 @@ const schema = Yup.object({
 
 export default function RegisterPage() {
   const router = useRouter();
-  const isAuthenticated = useAuthStore(selectIsAuthenticated);
-
-  useEffect(() => {
-    if (isAuthenticated) router.replace("/dashboard");
-  }, [isAuthenticated, router]);
+  const login = useAuthStore((s) => s.login);
 
   const formik = useFormik({
     initialValues: { name: "", email: "", password: "", confirmPassword: "" },
@@ -57,6 +52,8 @@ export default function RegisterPage() {
     label: string,
     type = "text",
     placeholder = "",
+    autoComplete?: string,
+    autoFocus?: boolean,
   ) => (
     <div className="space-y-1.5">
       <Label htmlFor={id}>{label}</Label>
@@ -64,6 +61,8 @@ export default function RegisterPage() {
         id={id}
         type={type}
         placeholder={placeholder}
+        autoComplete={autoComplete}
+        autoFocus={autoFocus}
         {...formik.getFieldProps(id)}
       />
       {formik.touched[id] && formik.errors[id] && (
@@ -83,22 +82,23 @@ export default function RegisterPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={formik.handleSubmit} className="space-y-4">
-            {field("name", "পূর্ণ নাম", "text", "আপনার নাম")}
-            {field("email", "ইমেইল", "email", "example@email.com")}
-            {field("password", "পাসওয়ার্ড", "password", "••••••••")}
+            {field("name", "পূর্ণ নাম", "text", "আপনার নাম", "name", true)}
+            {field("email", "ইমেইল", "email", "example@email.com", "email")}
+            {field("password", "পাসওয়ার্ড", "password", "••••••••", "new-password")}
             {field(
               "confirmPassword",
               "পাসওয়ার্ড নিশ্চিত করুন",
               "password",
               "••••••••",
+              "new-password",
             )}
 
             <Button
               type="submit"
               className="w-full"
-              disabled={formik.isSubmitting}
+              loading={formik.isSubmitting}
             >
-              {formik.isSubmitting ? "তৈরি হচ্ছে..." : "অ্যাকাউন্ট তৈরি করুন"}
+              অ্যাকাউন্ট তৈরি করুন
             </Button>
 
             <p className="text-center text-sm text-muted-foreground">

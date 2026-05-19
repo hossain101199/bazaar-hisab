@@ -45,7 +45,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       .then(({ accessToken, user }) => {
         setToken(accessToken)
         setUser(user)
-        document.cookie = `role=${user.role}; path=/; SameSite=Lax`
       })
       .catch(() => {
         logout()

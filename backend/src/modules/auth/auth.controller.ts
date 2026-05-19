@@ -25,6 +25,7 @@ export async function login(req: Request, res: Response, next: NextFunction) {
     const { email, password } = req.body as LoginInput;
     const { accessToken, refreshToken, user } = await loginUser(email, password);
     res.cookie("refreshToken", refreshToken, COOKIE_OPTIONS);
+    res.cookie("role", user.role, COOKIE_OPTIONS);
     res.json({ success: true, accessToken, user });
   } catch (err) {
     next(err);
@@ -40,6 +41,7 @@ export async function refresh(req: Request, res: Response, next: NextFunction) {
     }
     const { accessToken, refreshToken, user } = await rotateRefreshToken(token);
     res.cookie("refreshToken", refreshToken, COOKIE_OPTIONS);
+    res.cookie("role", user.role, COOKIE_OPTIONS);
     res.json({ success: true, accessToken, user });
   } catch (err) {
     next(err);
@@ -50,7 +52,14 @@ export async function logout(req: Request, res: Response, next: NextFunction) {
   try {
     const token = req.cookies?.refreshToken as string | undefined;
     if (token) await revokeRefreshToken(token);
-    res.clearCookie("refreshToken");
+    const clearOptions = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax" as const,
+      path: "/",
+    };
+    res.clearCookie("refreshToken", clearOptions);
+    res.clearCookie("role", clearOptions);
     res.json({ success: true, message: "লগআউট সফল" });
   } catch (err) {
     next(err);

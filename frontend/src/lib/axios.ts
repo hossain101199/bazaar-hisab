@@ -51,6 +51,12 @@ api.interceptors.response.use(
 
     original._retry = true;
 
+    // Auth endpoints নিজেরাই 401 পাঠায় — এগুলোতে refresh করার চেষ্টা করলে page reload হয়।
+    const skipRefreshUrls = ['/api/auth/login', '/api/auth/refresh', '/api/auth/register'];
+    if (skipRefreshUrls.some((u) => (original?.url ?? '').includes(u))) {
+      return Promise.reject(error);
+    }
+
     if (!refreshPromise) {
       refreshPromise = axios
         .post<{ accessToken: string }>(

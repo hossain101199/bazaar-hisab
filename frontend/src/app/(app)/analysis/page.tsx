@@ -325,7 +325,11 @@ export default function AnalysisPage() {
             type="month"
             value={month}
             max={new Date().toISOString().slice(0, 7)}
-            onChange={e => setMonth(e.target.value)}
+            onChange={e => {
+              setMonth(e.target.value)
+              // Reset year to current so clearing the month returns to current-year view.
+              if (e.target.value) setYear(currentYear)
+            }}
             className="h-9 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/50"
           />
           {month && (

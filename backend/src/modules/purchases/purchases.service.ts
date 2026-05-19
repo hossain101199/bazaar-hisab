@@ -156,7 +156,7 @@ export async function createPurchase(
 export async function updatePurchase(
   userId: number,
   purchaseId: number,
-  data: { date?: string; note?: string; shopId?: number | null; items?: ItemInput[] },
+  data: { date?: string; note?: string | null; shopId?: number | null; items?: ItemInput[] },
 ) {
   const existing = await prisma.purchase.findFirst({ where: { id: purchaseId, userId } });
   if (!existing) throw new AppError("ক্রয় পাওয়া যায়নি", 404);

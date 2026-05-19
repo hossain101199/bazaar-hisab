@@ -6,11 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { extractErrorMessage } from "@/lib/error-handler";
 import { authService } from "@/services/auth.service";
-import { selectIsAuthenticated, useAuthStore } from "@/store/auth.store";
+import { useAuthStore } from "@/store/auth.store";
 import { useFormik } from "formik";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
 import { toast } from "sonner";
 import * as Yup from "yup";
 
@@ -22,11 +21,6 @@ const schema = Yup.object({
 export default function LoginPage() {
   const router = useRouter();
   const login = useAuthStore((s) => s.login);
-  const isAuthenticated = useAuthStore(selectIsAuthenticated);
-
-  useEffect(() => {
-    if (isAuthenticated) router.replace("/dashboard");
-  }, [isAuthenticated, router]);
 
   const formik = useFormik({
     initialValues: { email: "", password: "" },

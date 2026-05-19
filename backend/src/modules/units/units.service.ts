@@ -1,3 +1,4 @@
+import { Role } from '@prisma/client'
 import prisma from '../../prisma'
 import { AppError } from '../../utils/AppError'
 import { convert } from '../../utils/unitConverter'
@@ -7,11 +8,11 @@ type UnitOwnership = { type: string; userId: number | null }
 function assertUserOwnsUnit(
   unit: UnitOwnership,
   userId: number,
-  userRole: string,
+  userRole: Role,
   action: 'পরিবর্তন' | 'মুছে ফেলা',
 ) {
   if (unit.type === 'SYSTEM') {
-    if (userRole !== 'ADMIN') throw new AppError(`SYSTEM একক ${action} করা যাবে না`, 403)
+    if (userRole !== Role.ADMIN) throw new AppError(`SYSTEM একক ${action} করা যাবে না`, 403)
     return
   }
   if (unit.userId !== userId) {
@@ -28,11 +29,11 @@ export async function listUnits(userId: number) {
 
 export async function createUnit(
   userId: number,
-  userRole: string,
+  userRole: Role,
   data: { name: string; type?: string; groupKey?: string | null; baseRatio?: number | null },
 ) {
   const isSystem = data.type === 'SYSTEM'
-  if (isSystem && userRole !== 'ADMIN') {
+  if (isSystem && userRole !== Role.ADMIN) {
     throw new AppError('শুধুমাত্র Admin SYSTEM একক তৈরি করতে পারবেন', 403)
   }
 
@@ -66,7 +67,7 @@ export async function createUnit(
 
 export async function updateUnit(
   userId: number,
-  userRole: string,
+  userRole: Role,
   unitId: number,
   data: { name?: string; groupKey?: string | null; baseRatio?: number | null },
 ) {
@@ -103,7 +104,7 @@ export async function updateUnit(
   })
 }
 
-export async function deleteUnit(userId: number, userRole: string, unitId: number) {
+export async function deleteUnit(userId: number, userRole: Role, unitId: number) {
   const unit = await prisma.unit.findUnique({ where: { id: unitId } })
   if (!unit) throw new AppError('একক পাওয়া যায়নি', 404)
   assertUserOwnsUnit(unit, userId, userRole, 'মুছে ফেলা')

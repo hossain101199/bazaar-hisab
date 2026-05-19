@@ -21,7 +21,8 @@ import { toast } from 'sonner'
 
 export default function PurchaseDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const purchaseId = Number(id)
+  const rawId = Number(id)
+  const purchaseId = Number.isInteger(rawId) && rawId > 0 ? rawId : null
   const router = useRouter()
   const queryClient = useQueryClient()
   const [mode, setMode] = useState<'view' | 'edit'>('view')
@@ -30,7 +31,8 @@ export default function PurchaseDetailPage() {
   const { data: purchase, isLoading: purchaseLoading, isError: purchaseError, refetch: refetchPurchase } =
     useQuery<Purchase>({
       queryKey: ['purchase', purchaseId],
-      queryFn: () => purchasesService.getById(purchaseId),
+      queryFn: () => purchasesService.getById(purchaseId!),
+      enabled: purchaseId !== null,
     })
 
   const { data: products = [], isLoading: productsLoading } = useQuery<Product[]>({
@@ -39,9 +41,10 @@ export default function PurchaseDetailPage() {
   })
 
   const deleteMutation = useMutation({
-    mutationFn: () => purchasesService.delete(purchaseId),
+    mutationFn: () => purchasesService.delete(purchaseId!),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['purchases'] })
+      queryClient.invalidateQueries({ queryKey: ['purchases-recent'] })
       queryClient.invalidateQueries({ queryKey: ['summary'] })
       toast.success('বাজার মুছে ফেলা হয়েছে')
       router.replace('/purchases')
@@ -55,6 +58,20 @@ export default function PurchaseDetailPage() {
   }
 
   const loading = purchaseLoading || productsLoading
+
+  if (purchaseId === null) {
+    return (
+      <div className="p-4 md:p-6 max-w-2xl mx-auto space-y-4">
+        <button
+          onClick={() => router.push('/purchases')}
+          className="flex items-center gap-1.5 text-muted-foreground text-sm hover:text-foreground transition-colors"
+        >
+          <ChevronLeft className="h-4 w-4" /> ফিরে যান
+        </button>
+        <p className="text-center text-muted-foreground py-8">অবৈধ ক্রয় আইডি।</p>
+      </div>
+    )
+  }
 
   if (loading) {
     return (

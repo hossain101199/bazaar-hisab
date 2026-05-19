@@ -26,6 +26,7 @@ interface ProductRowProps {
 }
 
 function ProductRow({ product: p, isAdmin, onEdit, onDelete }: ProductRowProps) {
+  const canEdit = p.type === 'USER' || isAdmin
   return (
     <div className="flex items-center gap-3 py-3 border-b last:border-0">
       <div className="flex-1 min-w-0">
@@ -42,17 +43,7 @@ function ProductRow({ product: p, isAdmin, onEdit, onDelete }: ProductRowProps) 
           </p>
         )}
       </div>
-      {p.type === 'USER' && (
-        <div className="flex gap-1 shrink-0">
-          <Button size="icon" variant="ghost" className="h-8 w-8" aria-label={`"${p.name}" সম্পাদনা করুন`} onClick={() => onEdit(p)}>
-            <Pencil className="h-3.5 w-3.5" />
-          </Button>
-          <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:text-destructive" aria-label={`"${p.name}" মুছুন`} onClick={() => onDelete(p)}>
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-      )}
-      {p.type === 'SYSTEM' && isAdmin && (
+      {canEdit && (
         <div className="flex gap-1 shrink-0">
           <Button size="icon" variant="ghost" className="h-8 w-8" aria-label={`"${p.name}" সম্পাদনা করুন`} onClick={() => onEdit(p)}>
             <Pencil className="h-3.5 w-3.5" />

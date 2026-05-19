@@ -1,9 +1,10 @@
 import { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
+import { Role } from "@prisma/client";
 
 export interface AuthRequest extends Request {
   userId?: number;
-  userRole?: string;
+  userRole?: Role;
 }
 
 interface JwtPayload {
@@ -21,8 +22,8 @@ function isJwtPayload(payload: unknown): payload is JwtPayload {
 }
 
 const secret = process.env.JWT_SECRET;
-if (!secret) {
-  throw new Error("JWT_SECRET missing");
+if (!secret || secret.length < 32) {
+  throw new Error("JWT_SECRET অবশ্যই কমপক্ষে ৩২ character হতে হবে");
 }
 
 export function authMiddleware(
@@ -45,7 +46,7 @@ export function authMiddleware(
       return;
     }
     req.userId = payload.userId;
-    req.userRole = payload.role ?? "USER";
+    req.userRole = payload.role === Role.ADMIN ? Role.ADMIN : Role.USER;
     next();
   } catch {
     res

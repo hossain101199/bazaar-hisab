@@ -31,6 +31,7 @@ interface UnitRowProps {
 }
 
 function UnitRow({ u, isAdmin, onEdit, onDelete }: UnitRowProps) {
+  const canEdit = u.type === 'USER' || isAdmin
   return (
     <div className="flex items-center gap-3 py-3 border-b last:border-0">
       <div className="flex-1 min-w-0">
@@ -49,29 +50,7 @@ function UnitRow({ u, isAdmin, onEdit, onDelete }: UnitRowProps) {
           <p className="text-xs text-muted-foreground mt-0.5">বেস অনুপাত: {u.baseRatio}</p>
         )}
       </div>
-      {u.type === 'USER' && (
-        <div className="flex gap-1 shrink-0">
-          <Button
-            size="icon"
-            variant="ghost"
-            className="h-8 w-8"
-            aria-label={`"${u.name}" সম্পাদনা করুন`}
-            onClick={() => onEdit(u)}
-          >
-            <Pencil className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            size="icon"
-            variant="ghost"
-            className="h-8 w-8 text-destructive hover:text-destructive"
-            aria-label={`"${u.name}" মুছুন`}
-            onClick={() => onDelete(u)}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-      )}
-      {u.type === 'SYSTEM' && isAdmin && (
+      {canEdit && (
         <div className="flex gap-1 shrink-0">
           <Button
             size="icon"

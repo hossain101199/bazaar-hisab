@@ -2,19 +2,6 @@ import { NextFunction, Response } from "express";
 import { AuthRequest } from "../../middleware/auth.middleware";
 import { parsePositiveInt } from "../../utils/parseId";
 import { sanitizeSearch } from "../../utils/sanitize";
-
-function parseReportParams(query: Record<string, unknown>): { year: number | undefined; month: string | undefined; error?: string } {
-  const month = query.month as string | undefined;
-  if (month && !/^\d{4}-\d{2}$/.test(month)) {
-    return { year: undefined, month: undefined, error: "month ফরম্যাট হবে YYYY-MM" };
-  }
-  let year: number | undefined;
-  if (!month && query.year !== undefined) {
-    year = parseInt(query.year as string);
-    if (isNaN(year)) return { year: undefined, month: undefined, error: "বৈধ year দিন" };
-  }
-  return { year, month };
-}
 import {
   getPurchase,
   getSummary,
@@ -28,6 +15,19 @@ import {
   getProductByShop as svcProductByShop,
 } from "./purchases.service";
 import type { CreatePurchaseInput, UpdatePurchaseInput } from "./purchases.schema";
+
+function parseReportParams(query: Record<string, unknown>): { year: number | undefined; month: string | undefined; error?: string } {
+  const month = query.month as string | undefined;
+  if (month && !/^\d{4}-\d{2}$/.test(month)) {
+    return { year: undefined, month: undefined, error: "month ফরম্যাট হবে YYYY-MM" };
+  }
+  let year: number | undefined;
+  if (!month && query.year !== undefined) {
+    year = parseInt(query.year as string);
+    if (isNaN(year)) return { year: undefined, month: undefined, error: "বৈধ year দিন" };
+  }
+  return { year, month };
+}
 
 export async function getPurchases(
   req: AuthRequest,

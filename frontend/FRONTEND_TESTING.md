@@ -20,6 +20,9 @@ Browsers to test: Chrome (primary), Firefox, Safari (mobile), Chrome on Android.
 4. Already authenticated → visiting `/login` redirects to `/dashboard`
 5. After forced logout (token expired mid-session) → login redirects back to original page (via `sessionStorage.redirectAfterLogin`)
 6. Pressing Enter in the password field submits the form
+7. Email field has `autoFocus` and `autoComplete="email"`
+8. Password field has `autoComplete="current-password"`
+9. Submit button shows spinner and is disabled while submitting (`loading` prop)
 
 ### Registration
 1. Valid data → success toast + redirect to `/login`
@@ -28,6 +31,9 @@ Browsers to test: Chrome (primary), Firefox, Safari (mobile), Chrome on Android.
 4. Password without letter/number → validation error
 5. Password confirmation mismatch → "পাসওয়ার্ড মিলছে না" error
 6. Already authenticated → redirects to `/dashboard`
+7. Name field has `autoFocus` — cursor lands there on page load
+8. Name has `autoComplete="name"`, email `autoComplete="email"`, password fields `autoComplete="new-password"`
+9. Submit button shows spinner via `loading` prop (not manual text swap)
 
 ### Session Restore
 1. Hard refresh (F5) on any protected page → session silently restored via refresh cookie → no redirect to login
@@ -50,6 +56,8 @@ Browsers to test: Chrome (primary), Firefox, Safari (mobile), Chrome on Android.
 8. "নতুন বাজার" button navigates to `/purchases/new`
 9. "সব দেখুন" button navigates to `/purchases`
 10. Clicking a recent purchase navigates to `/purchases/{id}`
+11. **Regression:** After creating a new purchase → navigate to dashboard → recent list reflects the new purchase immediately (no stale cache)
+12. **Regression:** After deleting a purchase → navigate to dashboard → deleted purchase is gone from recent list
 
 ---
 
@@ -85,6 +93,7 @@ Browsers to test: Chrome (primary), Firefox, Safari (mobile), Chrome on Android.
 11. Submitting valid form → toast + redirect to `/purchases`
 12. Server error → Bengali error toast, form stays open
 13. Back button navigates back
+14. **Regression:** After successful create, `/dashboard` recent purchases updates immediately
 
 ---
 
@@ -106,6 +115,7 @@ Browsers to test: Chrome (primary), Firefox, Safari (mobile), Chrome on Android.
 14. ConfirmDialog: clicking overlay closes it
 15. Invalid ID in URL → "বাজার পাওয়া যায়নি" + back button shown
 16. Back button (ChevronLeft) → navigates to `/purchases` (not browser history)
+17. **Regression:** After delete, `/dashboard` recent purchases updates immediately
 
 ---
 
@@ -121,8 +131,8 @@ Browsers to test: Chrome (primary), Firefox, Safari (mobile), Chrome on Android.
 8. Admin: type selector shown (USER/SYSTEM) on create
 9. Non-admin: type selector hidden, always creates USER product
 10. Delete: ConfirmDialog shown, on confirm → product removed
-11. Cannot delete SYSTEM products (no delete button shown for non-admin)
-12. Admin: can edit SYSTEM products via pencil button
+11. Non-admin: cannot edit or delete SYSTEM products (no buttons shown)
+12. Admin: can edit AND delete SYSTEM products (buttons shown)
 13. Duplicate name error from backend → Bengali error toast
 
 ---
@@ -136,7 +146,8 @@ Browsers to test: Chrome (primary), Firefox, Safari (mobile), Chrome on Android.
 5. No group key selected → base ratio input hidden, no validation
 6. Edit: name and group/ratio can be changed
 7. Delete: ConfirmDialog shown
-8. Admin: can edit SYSTEM units
+8. Non-admin: cannot edit or delete SYSTEM units (no buttons shown)
+9. Admin: can edit AND delete SYSTEM units (buttons shown)
 
 ---
 
@@ -152,11 +163,14 @@ Browsers to test: Chrome (primary), Firefox, Safari (mobile), Chrome on Android.
 8. ConfirmDialog: confirming delete removes shop → toast shown
 9. Deleted shop's existing purchases retain their data (shop field set to null, not cascade deleted)
 10. Non-admin: cannot edit or delete SYSTEM shops (no buttons shown)
-11. Admin: type selector shown (USER/SYSTEM) on create
-12. Admin: can edit SYSTEM shops
+11. Admin: can edit AND delete SYSTEM shops (buttons shown via `canEdit`)
+12. Admin: type selector shown (USER/SYSTEM) on create
 13. Duplicate shop name error from backend → Bengali error toast
 14. "/shops" link visible in desktop sidebar
 15. "/shops" NOT visible in mobile bottom nav (mobileHidden)
+16. **Regression:** Creating a shop with leading/trailing spaces — name saved trimmed
+17. **Regression:** Shop name > 100 chars → server validation error
+18. **Regression:** Shop address > 300 chars → server validation error
 
 ---
 
@@ -188,7 +202,7 @@ Browsers to test: Chrome (primary), Firefox, Safari (mobile), Chrome on Android.
 ### Product vs Shop Comparison section
 1. Product dropdown lists all accessible products
 2. Selecting a product shows table of shops where it was purchased
-3. Columns: দোকান নাম, গড় দাম, কেনার সংখ্যা, সর্বশেষ দাম, সর্বশেষ তারিখ
+3. Columns: দোকান নাম, গড় দাম, কেনার সংখ্যা, সর্বশেষ দাম
 4. Cheapest shop (lowest avg price) highlighted in green
 5. Sorted by average price ascending (cheapest first)
 6. Empty state if product has no purchase history with shops
@@ -205,6 +219,7 @@ Browsers to test: Chrome (primary), Firefox, Safari (mobile), Chrome on Android.
 6. Zero-purchase months show as empty bars (not crash)
 7. Chart tooltips show Bengali label + formatted currency
 8. Summary cards show correct yearly total and purchase count
+9. Month comparison section: selecting two months shows correct diff % and highlights red/green
 
 ---
 
@@ -256,6 +271,9 @@ Browsers to test: Chrome (primary), Firefox, Safari (mobile), Chrome on Android.
 5. **Duplicate shop name (409):** Bengali error toast from server
 6. **Delete product in use (P2003):** Bengali error toast
 7. **Token expired mid-session:** silent refresh, request retried
+8. **Purchase not found (404):** error state with back button shown on detail page
+9. **Note > 500 chars in purchase form:** server validation error shown as toast
+10. **Shop name > 100 chars:** server validation error shown as toast
 
 ---
 
@@ -263,8 +281,9 @@ Browsers to test: Chrome (primary), Firefox, Safari (mobile), Chrome on Android.
 
 1. All list pages show skeleton cards during initial fetch
 2. Skeleton count matches expected content (e.g., 3 for recent purchases)
-3. Form submit button shows "সংরক্ষণ হচ্ছে..." and is disabled during submission
+3. Form submit button shows spinner and is disabled during submission (`loading` prop)
 4. Delete confirmation button shows "মুছছে..." during deletion
+5. Register page submit button shows spinner while submitting (not manual text)
 
 ---
 
@@ -278,6 +297,8 @@ Run with a screen reader (NVDA/JAWS on Windows, VoiceOver on Mac/iOS):
 4. Form field errors are readable (connected to input)
 5. Escape key closes all dialogs
 6. Tab key navigates through all interactive elements in logical order
+7. Login page: cursor auto-lands on email field (autoFocus)
+8. Register page: cursor auto-lands on name field (autoFocus)
 
 ---
 
@@ -300,7 +321,7 @@ Run with a screen reader (NVDA/JAWS on Windows, VoiceOver on Mac/iOS):
 1. Register new account → verify redirect to login
 2. Login → verify dashboard loads with empty state
 3. Create first purchase with 2 items → verify success toast
-4. Verify purchase appears in list and dashboard recent purchases
+4. Verify purchase appears in list and dashboard recent purchases (cache invalidated)
 5. Open purchase detail → verify all item details correct
 
 ### Scenario B: Monthly Expense Tracking
@@ -326,6 +347,7 @@ Run with a screen reader (NVDA/JAWS on Windows, VoiceOver on Mac/iOS):
 5. Create a SYSTEM product → verify it appears in all user product lists
 6. Create a SYSTEM unit → verify it appears with "সিস্টেম" badge
 7. Create a SYSTEM shop → verify it appears in all users' shop dropdowns
+8. Verify admin sees edit/delete buttons for SYSTEM products, units, and shops
 
 ### Scenario E: Session Expiry Recovery
 1. Login and navigate to `/report`
@@ -345,3 +367,48 @@ Run with a screen reader (NVDA/JAWS on Windows, VoiceOver on Mac/iOS):
 6. Navigate to Analysis → Product vs Shop → select "আলু" → verify "মিরপুর বাজার" shown as cheapest (highlighted green)
 7. Edit the first purchase and clear its shop → verify shop badge disappears from list
 8. Delete "কারওয়ান বাজার" shop → verify the purchase still exists (shop field cleared, not deleted)
+
+---
+
+## 18. Bug Report & Risk Register
+
+### Fixed Bugs (2026-05-19 Audit)
+
+| # | Severity | Bug | Fix Applied |
+|---|---|---|---|
+| 1 | Critical | Dashboard `['purchases-recent']` cache not invalidated after create/edit/delete | Added invalidation in `PurchaseForm.tsx` and `[id]/page.tsx` |
+| 2 | High | Shop names not trimmed before save (inconsistent with units/products) | Added `.trim()` in `shops.service.ts` createShop + updateShop |
+| 3 | High | P2025 Prisma error returned as HTTP 400 instead of 404 | Fixed in `error.middleware.ts` |
+| 4 | High | Register page Button used manual `disabled`+text instead of `loading` prop | Updated to `loading={formik.isSubmitting}` |
+| 5 | Medium | `loginUser` and `rotateRefreshToken` missing `createdAt` in user object | Added `createdAt` to both selects in `auth.service.ts` |
+| 6 | Medium | No max-length on `note` (purchases) or `name`/`address` (shops) | Added `.max()` in `purchases.schema.ts` and `shops.schema.ts` |
+| 7 | Low | `parseReportParams` defined before its imports in controller | Moved function after imports |
+| 8 | Low | Duplicated edit/delete button JSX in `ProductRow` and `UnitRow` | Simplified with `canEdit` variable |
+| 9 | Low | Register page missing `autoFocus` + `autoComplete` attributes | Added via `field()` helper |
+
+### Known Remaining Gaps (Not Bugs, Future Work)
+
+| # | Area | Gap | Impact |
+|---|---|---|---|
+| 1 | API | Shop address cannot be cleared once set (API accepts null now via schema but frontend ShopDialog sends `undefined` for empty address) | Low — uncommon use case |
+| 2 | Cache | Analysis page `['top-products']` and `['shop-report']` not invalidated after purchases change | Low — acceptable staleness, refetch on window focus |
+| 3 | Admin | Admin cannot promote/demote user roles | Medium — missing admin feature |
+| 4 | Auth | No email verification on registration | Medium — security gap for public deployment |
+| 5 | Auth | No password reset flow | Medium — UX gap |
+| 6 | Auth | No refresh token reuse detection (token family) | Low — see TODO.md |
+| 7 | DB | `listUsers` in admin is not paginated | Low — fine for small user counts |
+
+### Regression Checklist (Run After Every Release)
+
+- [ ] Create a purchase → verify dashboard recent list updates immediately
+- [ ] Delete a purchase → verify dashboard recent list updates immediately
+- [ ] Edit a purchase → verify detail page shows updated data
+- [ ] Create a shop with " Leading Space " → verify name saved as "Leading Space"
+- [ ] Register with duplicate email → verify error toast (not crash)
+- [ ] Register page: verify submit spinner appears (not manual text change)
+- [ ] Admin: verify SYSTEM product edit/delete buttons visible, non-admin: verify hidden
+- [ ] Admin: verify SYSTEM unit edit/delete buttons visible, non-admin: verify hidden
+- [ ] Hard refresh on protected page → session restored, no login redirect
+- [ ] 404 on purchase detail (invalid id) → error state with back button shown, not crash
+- [ ] Note field > 500 chars → backend validation error shown as toast
+- [ ] Shop name > 100 chars → backend validation error shown as toast

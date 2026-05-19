@@ -1,3 +1,4 @@
+import { Role } from "@prisma/client";
 import { NextFunction, Response } from "express";
 import { AuthRequest } from "../../middleware/auth.middleware";
 import { parsePositiveInt } from "../../utils/parseId";
@@ -54,7 +55,7 @@ export async function updateUnit(
       return;
     }
     const { name, groupKey, baseRatio } = req.body as UpdateUnitInput;
-    const unit = await svcUpdate(req.userId!, req.userRole ?? 'USER', id, { name, groupKey, baseRatio });
+    const unit = await svcUpdate(req.userId!, req.userRole ?? Role.USER, id, { name, groupKey, baseRatio });
     res.json({ success: true, unit });
   } catch (err) {
     next(err);
@@ -72,7 +73,7 @@ export async function deleteUnit(
       res.status(400).json({ success: false, message: "Invalid id" });
       return;
     }
-    await svcDelete(req.userId!, req.userRole ?? 'USER', id);
+    await svcDelete(req.userId!, req.userRole ?? Role.USER, id);
     res.json({ success: true, message: "একক মুছে ফেলা হয়েছে" });
   } catch (err) {
     next(err);

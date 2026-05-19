@@ -14,8 +14,10 @@ export function errorMiddleware(
     if (code === "P2002") {
       return res.status(409).json({ success: false, message: "এই ডেটা ইতিমধ্যে বিদ্যমান" });
     }
-    if (code === "P2025") message = "অনুরোধকৃত ডেটা পাওয়া যায়নি";
-    else if (code === "P2003") message = "বৈধ সম্পর্ক না থাকার কারণে অপারেশন ব্যর্থ";
+    if (code === "P2025") {
+      return res.status(404).json({ success: false, message: "অনুরোধকৃত ডেটা পাওয়া যায়নি" });
+    }
+    if (code === "P2003") message = "বৈধ সম্পর্ক না থাকার কারণে অপারেশন ব্যর্থ";
     return res.status(400).json({ success: false, message });
   }
 
@@ -38,10 +40,11 @@ export function errorMiddleware(
     return res.status(err.status).json({ success: false, message: err.message });
   }
 
-  const message = err instanceof Error ? err.message : "Internal Server Error";
+  const isDev = process.env.NODE_ENV !== 'production'
+  const message = isDev && err instanceof Error ? err.message : "Internal Server Error";
   console.error(`[ERROR] ${_req.method} ${_req.path}`, {
     status: 500,
-    message,
+    message: err instanceof Error ? err.message : String(err),
     stack: err instanceof Error ? err.stack : undefined,
   });
   res.status(500).json({ success: false, message });
