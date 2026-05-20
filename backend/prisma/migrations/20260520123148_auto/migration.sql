@@ -55,7 +55,6 @@ CREATE TABLE "Shop" (
     "id" SERIAL NOT NULL,
     "name" TEXT NOT NULL,
     "address" TEXT,
-    "type" "EntityType" NOT NULL DEFAULT 'USER',
     "userId" INTEGER,
 
     CONSTRAINT "Shop_pkey" PRIMARY KEY ("id")
