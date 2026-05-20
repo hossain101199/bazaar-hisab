@@ -62,7 +62,7 @@ LTS version, আরো stable এবং security update পাবে।
 ---
 
 ```dockerfile
-COPY package*.json ./
+COPY package.json package-lock.json ./
 RUN npm install
 ```
 Development এর মতোই। আগে dependencies, cache এর জন্য।
@@ -148,7 +148,7 @@ Hot reload দরকার নেই, শুধু app চলুক।
 FROM node:22-alpine AS builder
 WORKDIR /app
 
-COPY package*.json ./
+COPY package.json package-lock.json ./
 RUN npm install
 
 COPY . .

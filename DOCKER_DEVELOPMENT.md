@@ -41,7 +41,7 @@ WORKDIR /app
 ---
 
 ```dockerfile
-COPY package*.json ./
+COPY package.json package-lock.json ./
 RUN npm install
 ```
 **কী করে:** আগে শুধু `package.json` আর `package-lock.json` copy করে, তারপর `npm install` চালায়।
@@ -108,7 +108,7 @@ Backend এর মতোই। Node 20 Alpine image, `/app` working directory।
 ---
 
 ```dockerfile
-COPY package*.json ./
+COPY package.json package-lock.json ./
 RUN npm install
 ```
 আগে dependency install করা হয়, layer cache এর জন্য। কারণটা backend এ যা বলা হয়েছে সেটাই।

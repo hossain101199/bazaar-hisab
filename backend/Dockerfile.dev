@@ -3,7 +3,7 @@ FROM node:20-alpine
 WORKDIR /app
 
 # copy package files before source — preserves layer cache when only source changes
-COPY package*.json ./
+COPY package.json package-lock.json ./
 RUN npm install
 
 # prisma.config.ts is Prisma 7.x primary config — required before generate
