@@ -32,6 +32,13 @@ export async function login(req: Request, res: Response, next: NextFunction) {
   }
 }
 
+const CLEAR_COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: "lax" as const,
+  path: "/",
+};
+
 export async function refresh(req: Request, res: Response, next: NextFunction) {
   try {
     const token = req.cookies?.refreshToken as string | undefined;
@@ -44,6 +51,8 @@ export async function refresh(req: Request, res: Response, next: NextFunction) {
     res.cookie("role", user.role, COOKIE_OPTIONS);
     res.json({ success: true, accessToken, user });
   } catch (err) {
+    res.clearCookie("refreshToken", CLEAR_COOKIE_OPTIONS);
+    res.clearCookie("role", CLEAR_COOKIE_OPTIONS);
     next(err);
   }
 }
