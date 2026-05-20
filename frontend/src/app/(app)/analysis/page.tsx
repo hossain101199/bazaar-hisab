@@ -12,6 +12,7 @@ import { useChartColor } from '@/hooks/useChartColor'
 import { useQuery } from '@tanstack/react-query'
 import { format } from 'date-fns'
 import { bn } from 'date-fns/locale'
+import { selectIsAdmin, useAuthStore } from '@/store/auth.store'
 import { useState } from 'react'
 import {
   Bar, BarChart, CartesianGrid, Line, LineChart,
@@ -279,6 +280,7 @@ export default function AnalysisPage() {
   const currentYear = new Date().getFullYear()
   const [year, setYear] = useState(currentYear)
   const [month, setMonth] = useState('')
+  const isAdmin = useAuthStore(selectIsAdmin)
 
   const { data: topProducts = [], isLoading: topLoading, isError: topError, refetch: refetchTop } =
     useQuery<TopProduct[]>({
@@ -304,7 +306,10 @@ export default function AnalysisPage() {
   return (
     <div className="p-4 md:p-6 space-y-5 max-w-2xl mx-auto">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">বিশ্লেষণ</h1>
+        <div>
+          <h1 className="text-xl font-bold">বিশ্লেষণ</h1>
+          {isAdmin && <p className="text-xs text-muted-foreground mt-0.5">সকল ব্যবহারকারীর তথ্য</p>}
+        </div>
 
         <div className="flex items-center gap-2">
           {!month && (

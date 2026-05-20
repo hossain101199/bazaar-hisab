@@ -74,13 +74,11 @@ model RefreshToken {
   @@index([userId])
 }
 
-// SYSTEM দোকান: userId = null — Admin তৈরি, সব ব্যবহারকারী দেখতে পান
-// USER দোকান:   userId = id — শুধু নিজে দেখবেন
+// Shop সবসময় USER-owned — userId = ব্যবহারকারীর id, Admin তৈরি করতে পারবেন না
 model Shop {
   id        Int        @id @default(autoincrement())
   name      String
   address   String?
-  type      EntityType @default(USER)
   userId    Int?
   user      User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
   purchases Purchase[]

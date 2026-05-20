@@ -68,7 +68,11 @@ export default function LoginPage() {
                 autoFocus
                 autoComplete="email"
                 {...formik.getFieldProps("email")}
-                className={formik.touched.email && formik.errors.email ? "border-destructive focus-visible:ring-destructive/30" : ""}
+                className={
+                  formik.touched.email && formik.errors.email
+                    ? "border-destructive focus-visible:ring-destructive/30"
+                    : ""
+                }
               />
               {formik.touched.email && formik.errors.email && (
                 <p className="text-destructive text-xs" role="alert">
@@ -85,7 +89,11 @@ export default function LoginPage() {
                 placeholder="••••••••"
                 autoComplete="current-password"
                 {...formik.getFieldProps("password")}
-                className={formik.touched.password && formik.errors.password ? "border-destructive focus-visible:ring-destructive/30" : ""}
+                className={
+                  formik.touched.password && formik.errors.password
+                    ? "border-destructive focus-visible:ring-destructive/30"
+                    : ""
+                }
               />
               {formik.touched.password && formik.errors.password && (
                 <p className="text-destructive text-xs" role="alert">
@@ -106,7 +114,7 @@ export default function LoginPage() {
               অ্যাকাউন্ট নেই?{" "}
               <Link
                 href="/register"
-                className="text-foreground font-medium underline underline-offset-4 hover:text-primary transition-colors"
+                className="text-foreground underline underline-offset-4"
               >
                 নিবন্ধন করুন
               </Link>

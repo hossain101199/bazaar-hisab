@@ -149,7 +149,7 @@ export default function UnitsPage() {
       {!isLoading && !isError && (
         <Card>
           <CardContent className="px-4 py-1">
-            <p className="text-xs font-semibold text-muted-foreground py-2">আমার একক</p>
+            <p className="text-xs font-semibold text-muted-foreground py-2">{isAdmin ? "ব্যবহারকারীদের একক" : "আমার একক"}</p>
             {userUnits.length === 0 ? (
               <EmptyState
                 icon={Ruler}

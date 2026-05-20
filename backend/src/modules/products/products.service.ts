@@ -1,6 +1,7 @@
-import { Role } from "@prisma/client";
+import { EntityType, Role } from "@prisma/client";
 import prisma from "../../prisma";
 import { AppError } from "../../utils/AppError";
+import { accessFilter, assertCanMutate, Ownership } from "../../utils/entityAccess";
 
 const productSelect = {
   id: true,
@@ -14,38 +15,33 @@ const productSelect = {
 type ProductRow = {
   id: number;
   name: string;
-  type: string;
+  type: EntityType;
   userId: number | null;
   unitId: number;
   unit: { id: number; name: string };
 };
 
-type ProductOwnership = { type: string; userId: number | null };
-
-function assertUserOwnsProduct(
-  product: ProductOwnership,
-  userId: number,
-  userRole: Role,
-  action: "পরিবর্তন" | "মুছে ফেলা",
-) {
-  if (product.type === "SYSTEM") {
-    if (userRole !== Role.ADMIN) throw new AppError(`SYSTEM পণ্য ${action} করা যাবে না`, 403);
-    return;
-  }
-  if (product.userId !== userId) {
-    throw new AppError(`এই পণ্য ${action}ের অনুমতি নেই`, 403);
-  }
+// Admin sees all units; users see SYSTEM + own USER units.
+function unitWhereClause(unitId: number, userId: number, userRole: Role) {
+  return userRole === Role.ADMIN
+    ? { id: unitId }
+    : { id: unitId, OR: [{ type: EntityType.SYSTEM }, { userId }] };
 }
 
-export async function listProducts(userId: number) {
-  const products = await prisma.product.findMany({
-    where: { OR: [{ type: "SYSTEM" }, { type: "USER", userId }] },
+// ─── List ────────────────────────────────────────────────────────────────────
+
+export async function listProducts(userId: number, userRole: Role) {
+  const products = (await prisma.product.findMany({
+    where: accessFilter(userId, userRole),
     select: productSelect,
     orderBy: [{ type: "asc" }, { name: "asc" }],
-  }) as ProductRow[];
+  })) as ProductRow[];
+
+  if (userRole === Role.ADMIN) {
+    return products.map((p) => ({ ...p, lastPrice: null }));
+  }
 
   const productIds = products.map((p) => p.id);
-
   const lastItems = await prisma.purchaseItem.findMany({
     where: { productId: { in: productIds }, purchase: { userId } },
     orderBy: { purchase: { date: "desc" } },
@@ -53,56 +49,48 @@ export async function listProducts(userId: number) {
     distinct: ["productId"],
   });
 
-  const priceMap = new Map(lastItems.map((item) => [item.productId, item.pricePerUnit]));
+  const priceMap = new Map(lastItems.map((i) => [i.productId, i.pricePerUnit]));
   return products.map((p) => ({ ...p, lastPrice: priceMap.get(p.id) ?? null }));
 }
+
+// ─── Create ──────────────────────────────────────────────────────────────────
 
 export async function createProduct(
   userId: number,
   userRole: Role,
-  data: { name: string; type?: string; unitId: number },
+  data: { name: string; unitId: number },
 ) {
-  const isSystem = data.type === "SYSTEM";
-  if (isSystem && userRole !== Role.ADMIN) {
-    throw new AppError("শুধুমাত্র Admin SYSTEM পণ্য তৈরি করতে পারবেন", 403);
-  }
+  const isSystem = userRole === Role.ADMIN;
 
-  // SYSTEM products must use SYSTEM units so all users can see the unit.
-  // USER products may use any unit visible to this user (SYSTEM or own USER).
   const unit = await prisma.unit.findFirst({
-    where: isSystem
-      ? { id: data.unitId, type: "SYSTEM" }
-      : { id: data.unitId, OR: [{ type: "SYSTEM" }, { userId }] },
+    where: unitWhereClause(data.unitId, userId, userRole),
   });
-  if (!unit) throw new AppError(
-    isSystem ? "SYSTEM একক দিন (শুধুমাত্র SYSTEM একক ব্যবহার করা যাবে)" : "একক পাওয়া যায়নি বা অ্যাক্সেস নেই",
-    404,
-  );
+  if (!unit) throw new AppError("একক পাওয়া যায়নি বা অ্যাক্সেস নেই", 404);
 
   const trimmedName = data.name.trim();
   if (!trimmedName) throw new AppError("পণ্যের নাম দিন", 400);
 
+  const conflictScope = isSystem
+    ? { type: EntityType.SYSTEM }
+    : { OR: [{ type: EntityType.SYSTEM }, { userId }] };
+
   const conflict = await prisma.product.findFirst({
-    where: {
-      name: { equals: trimmedName, mode: "insensitive" },
-      ...(isSystem
-        ? { type: "SYSTEM" }
-        : { OR: [{ type: "SYSTEM" }, { userId }] }
-      ),
-    },
+    where: { name: { equals: trimmedName, mode: "insensitive" }, ...conflictScope },
   });
   if (conflict) throw new AppError("এই নামে একটি পণ্য ইতিমধ্যে আছে", 409);
 
   return prisma.product.create({
     data: {
       name: trimmedName,
-      type: isSystem ? "SYSTEM" : "USER",
+      type: isSystem ? EntityType.SYSTEM : EntityType.USER,
       unitId: data.unitId,
       userId: isSystem ? null : userId,
     },
     select: productSelect,
   });
 }
+
+// ─── Update ──────────────────────────────────────────────────────────────────
 
 export async function updateProduct(
   userId: number,
@@ -112,36 +100,28 @@ export async function updateProduct(
 ) {
   const product = await prisma.product.findUnique({ where: { id: productId } });
   if (!product) throw new AppError("পণ্য পাওয়া যায়নি", 404);
-  assertUserOwnsProduct(product, userId, userRole, "পরিবর্তন");
+  assertCanMutate(product as Ownership, userId, userRole, "পণ্য", "পরিবর্তন");
 
   if (data.unitId !== undefined) {
-    // Preserve the same SYSTEM/USER constraint as creation.
     const unit = await prisma.unit.findFirst({
-      where: product.type === "SYSTEM"
-        ? { id: data.unitId, type: "SYSTEM" }
-        : { id: data.unitId, OR: [{ type: "SYSTEM" }, { userId }] },
+      where: unitWhereClause(data.unitId, userId, userRole),
     });
-    if (!unit) throw new AppError(
-      product.type === "SYSTEM"
-        ? "SYSTEM একক দিন (শুধুমাত্র SYSTEM একক ব্যবহার করা যাবে)"
-        : "একক পাওয়া যায়নি বা অ্যাক্সেস নেই",
-      404,
-    );
+    if (!unit) throw new AppError("একক পাওয়া যায়নি বা অ্যাক্সেস নেই", 404);
   }
 
   if (data.name !== undefined) {
     const trimmedName = data.name.trim();
     if (!trimmedName) throw new AppError("পণ্যের নাম দিন", 400);
 
-    // Admin editing SYSTEM: check only against other SYSTEM products
-    // User editing own USER product: check against SYSTEM + own USER products
+    const conflictScope =
+      product.type === EntityType.SYSTEM
+        ? { type: EntityType.SYSTEM }
+        : { OR: [{ type: EntityType.SYSTEM }, { userId: product.userId }] };
+
     const conflict = await prisma.product.findFirst({
       where: {
         name: { equals: trimmedName, mode: "insensitive" },
-        ...(product.type === "SYSTEM"
-          ? { type: "SYSTEM" }
-          : { OR: [{ type: "SYSTEM" }, { userId }] }
-        ),
+        ...conflictScope,
         NOT: { id: productId },
       },
     });
@@ -158,13 +138,15 @@ export async function updateProduct(
   });
 }
 
+// ─── Delete ──────────────────────────────────────────────────────────────────
+
 export async function deleteProduct(userId: number, userRole: Role, productId: number) {
   const product = await prisma.product.findUnique({ where: { id: productId } });
   if (!product) throw new AppError("পণ্য পাওয়া যায়নি", 404);
-  assertUserOwnsProduct(product, userId, userRole, "মুছে ফেলা");
+  assertCanMutate(product as Ownership, userId, userRole, "পণ্য", "মুছে ফেলা");
 
-  const usedInPurchase = await prisma.purchaseItem.findFirst({ where: { productId } });
-  if (usedInPurchase) {
+  const inUse = await prisma.purchaseItem.findFirst({ where: { productId } });
+  if (inUse) {
     throw new AppError("এই পণ্যটি ক্রয় ইতিহাসে ব্যবহৃত হয়েছে, মুছে ফেলা যাবে না", 409);
   }
 

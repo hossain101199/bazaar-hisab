@@ -3,7 +3,6 @@ import { z } from "zod";
 export const createProductSchema = z.object({
   name: z.string().min(1, "পণ্যের নাম দিন").max(200).trim(),
   unitId: z.coerce.number().int().positive("বৈধ unitId দিন"),
-  type: z.enum(["USER", "SYSTEM"]).optional(),
 });
 
 export const updateProductSchema = z.object({

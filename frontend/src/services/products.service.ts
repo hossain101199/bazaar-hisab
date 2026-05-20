@@ -14,7 +14,7 @@ export const productsService = {
     return response.data.products;
   },
 
-  create: async (data: { name: string; unitId: number; type?: string }): Promise<Product> => {
+  create: async (data: { name: string; unitId: number }): Promise<Product> => {
     const response = await api.post<{ product: Product }>("/api/products", data);
     if (!response.data.product || !validateProduct(response.data.product)) {
       throw new Error("অবৈধ পণ্য ডেটা");

@@ -7,7 +7,7 @@ import { ErrorState } from '@/components/ui/error-state'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn, formatCurrency } from '@/lib/utils'
 import { purchasesService } from '@/services/purchases.service'
-import { useAuthStore } from '@/store/auth.store'
+import { selectIsAdmin, useAuthStore } from '@/store/auth.store'
 import type { Purchase, SummaryReport } from '@/types'
 import { useQuery } from '@tanstack/react-query'
 import { format } from 'date-fns'
@@ -38,6 +38,7 @@ function StatCard({ title, value, icon: Icon, loading }: {
 
 export default function DashboardPage() {
   const user = useAuthStore(s => s.user)
+  const isAdmin = useAuthStore(selectIsAdmin)
 
   const {
     data: summary,
@@ -85,16 +86,18 @@ export default function DashboardPage() {
       ) : (
         <>
           <div className="grid grid-cols-2 gap-3">
-            <StatCard title="এই মাসের খরচ" value={formatCurrency(thisMonth?.totalAmount ?? 0)} icon={TrendingUp} loading={loading} />
-            <StatCard title="এই মাসের বাজার" value={`${thisMonth?.purchaseCount ?? 0} টি`} icon={ShoppingCart} loading={loading} />
-            <StatCard title="বার্ষিক মোট" value={formatCurrency(summary?.totalAmount ?? 0)} icon={CalendarDays} loading={loading} />
+            <StatCard title={isAdmin ? "এই মাসে মোট খরচ" : "এই মাসের খরচ"} value={formatCurrency(thisMonth?.totalAmount ?? 0)} icon={TrendingUp} loading={loading} />
+            <StatCard title={isAdmin ? "এই মাসে মোট বাজার" : "এই মাসের বাজার"} value={`${thisMonth?.purchaseCount ?? 0} টি`} icon={ShoppingCart} loading={loading} />
+            <StatCard title={isAdmin ? "বার্ষিক মোট (সকল)" : "বার্ষিক মোট"} value={formatCurrency(summary?.totalAmount ?? 0)} icon={CalendarDays} loading={loading} />
             <StatCard title={`${summary?.year ?? new Date().getFullYear()} সালের মাস`} value={`${summary?.months.length ?? 0} টি`} icon={Package} loading={loading} />
           </div>
 
           <div className="flex gap-2">
-            <Link href="/purchases/new" className={cn(buttonVariants({ size: 'sm' }), 'flex-1 justify-center')}>
-              <Plus className="h-4 w-4 mr-1" /> নতুন বাজার
-            </Link>
+            {!isAdmin && (
+              <Link href="/purchases/new" className={cn(buttonVariants({ size: 'sm' }), 'flex-1 justify-center')}>
+                <Plus className="h-4 w-4 mr-1" /> নতুন বাজার
+              </Link>
+            )}
             <Link href="/purchases" className={cn(buttonVariants({ size: 'sm', variant: 'outline' }), 'flex-1 justify-center')}>
               সব দেখুন
             </Link>
@@ -111,7 +114,9 @@ export default function DashboardPage() {
               <Card>
                 <CardContent className="p-6 text-center text-muted-foreground text-sm">
                   এখনো কোনো বাজার নেই।{' '}
-                  <Link href="/purchases/new" className="underline text-foreground">প্রথম বাজার যোগ করুন</Link>
+                  {!isAdmin && (
+                    <Link href="/purchases/new" className="underline text-foreground">প্রথম বাজার যোগ করুন</Link>
+                  )}
                 </CardContent>
               </Card>
             )}

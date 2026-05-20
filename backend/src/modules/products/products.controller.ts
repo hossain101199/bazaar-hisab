@@ -5,47 +5,31 @@ import { parsePositiveInt } from "../../utils/parseId";
 import {
   listProducts,
   createProduct as svcCreate,
-  deleteProduct as svcDelete,
   updateProduct as svcUpdate,
+  deleteProduct as svcDelete,
 } from "./products.service";
 import type { CreateProductInput, UpdateProductInput } from "./products.schema";
 
-export async function getProducts(
-  req: AuthRequest,
-  res: Response,
-  next: NextFunction,
-) {
+export async function getProducts(req: AuthRequest, res: Response, next: NextFunction) {
   try {
-    const products = await listProducts(req.userId!);
+    const products = await listProducts(req.userId!, req.userRole ?? Role.USER);
     res.json({ success: true, products });
   } catch (err) {
     next(err);
   }
 }
 
-export async function createProduct(
-  req: AuthRequest,
-  res: Response,
-  next: NextFunction,
-) {
+export async function createProduct(req: AuthRequest, res: Response, next: NextFunction) {
   try {
-    const { name, type, unitId } = req.body as CreateProductInput;
-    const product = await svcCreate(req.userId!, req.userRole ?? Role.USER, {
-      name,
-      type,
-      unitId,
-    });
+    const { name, unitId } = req.body as CreateProductInput;
+    const product = await svcCreate(req.userId!, req.userRole ?? Role.USER, { name, unitId });
     res.status(201).json({ success: true, product });
   } catch (err) {
     next(err);
   }
 }
 
-export async function updateProduct(
-  req: AuthRequest,
-  res: Response,
-  next: NextFunction,
-) {
+export async function updateProduct(req: AuthRequest, res: Response, next: NextFunction) {
   try {
     const id = parsePositiveInt(req.params.id);
     if (!id) {
@@ -60,11 +44,7 @@ export async function updateProduct(
   }
 }
 
-export async function deleteProduct(
-  req: AuthRequest,
-  res: Response,
-  next: NextFunction,
-) {
+export async function deleteProduct(req: AuthRequest, res: Response, next: NextFunction) {
   try {
     const id = parsePositiveInt(req.params.id);
     if (!id) {

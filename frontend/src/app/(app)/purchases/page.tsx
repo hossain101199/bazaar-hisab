@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useDebounce } from '@/hooks/useDebounce'
 import { cn, formatCurrency } from '@/lib/utils'
 import { purchasesService } from '@/services/purchases.service'
+import { selectIsAdmin, useAuthStore } from '@/store/auth.store'
 import type { Purchase } from '@/types'
 import { useQuery } from '@tanstack/react-query'
 import { format } from 'date-fns'
@@ -21,6 +22,7 @@ import { useEffect, useState } from 'react'
 const PAGE_LIMIT = 15
 
 export default function PurchasesPage() {
+  const isAdmin = useAuthStore(selectIsAdmin)
   const [page, setPage] = useState(1)
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7))
   const [searchInput, setSearchInput] = useState('')
@@ -42,9 +44,11 @@ export default function PurchasesPage() {
     <div className="p-4 md:p-6 space-y-4 max-w-2xl mx-auto">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold">বাজার তালিকা</h1>
-        <Link href="/purchases/new" className={cn(buttonVariants({ size: 'sm' }))}>
-          <Plus className="h-4 w-4 mr-1" /> নতুন
-        </Link>
+        {!isAdmin && (
+          <Link href="/purchases/new" className={cn(buttonVariants({ size: 'sm' }))}>
+            <Plus className="h-4 w-4 mr-1" /> নতুন
+          </Link>
+        )}
       </div>
 
       <div className="flex gap-2">
@@ -104,7 +108,7 @@ export default function PurchasesPage() {
               icon={ShoppingCart}
               title="কোনো বাজার পাওয়া যায়নি"
               description={debouncedSearch ? `"${debouncedSearch}" এর জন্য কোনো ফলাফল নেই` : "এই মাসে কোনো বাজার নেই"}
-              action={!debouncedSearch ? (
+              action={!isAdmin && !debouncedSearch ? (
                 <Link href="/purchases/new" className={cn(buttonVariants({ size: 'sm' }))}>
                   <Plus className="h-4 w-4 mr-1" /> প্রথম বাজার যোগ করুন
                 </Link>

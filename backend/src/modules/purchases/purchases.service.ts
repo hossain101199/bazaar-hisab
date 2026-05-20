@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { EntityType, Prisma, Role } from "@prisma/client";
 import prisma from "../../prisma";
 import { AppError } from "../../utils/AppError";
 
@@ -49,10 +49,21 @@ function calcTotal(items: ItemInput[]) {
   return items.reduce((sum, item) => sum + item.totalPrice, 0);
 }
 
+function buildDateRange(year?: number, month?: string): { gte: Date; lt: Date } | undefined {
+  if (month) {
+    const [y, m] = month.split("-").map(Number);
+    return { gte: new Date(y, m - 1, 1), lt: new Date(y, m, 1) };
+  }
+  if (year !== undefined) {
+    return { gte: new Date(year, 0, 1), lt: new Date(year + 1, 0, 1) };
+  }
+  return undefined;
+}
+
 async function validateShopAccess(userId: number, shopId: number) {
-  const shop = await prisma.shop.findUnique({ where: { id: shopId }, select: { type: true, userId: true } });
+  const shop = await prisma.shop.findUnique({ where: { id: shopId }, select: { userId: true } });
   if (!shop) throw new AppError("দোকান পাওয়া যায়নি", 404);
-  if (shop.type !== "SYSTEM" && shop.userId !== userId) {
+  if (shop.userId !== userId) {
     throw new AppError("অননুমোদিত দোকান ব্যবহার", 403);
   }
 }
@@ -67,7 +78,7 @@ async function validateProductAccess(userId: number, productIds: number[]) {
     throw new AppError("একটি বা একাধিক পণ্য পাওয়া যায়নি", 404);
   }
   for (const p of found) {
-    if (p.type !== "SYSTEM" && p.userId !== userId) {
+    if (p.type !== EntityType.SYSTEM && p.userId !== userId) {
       throw new AppError("অননুমোদিত পণ্য ব্যবহার", 403);
     }
   }
@@ -77,18 +88,15 @@ async function validateProductAccess(userId: number, productIds: number[]) {
 
 export async function listPurchases(
   userId: number,
+  userRole: Role,
   opts: { month?: string; search?: string; page: number; limit: number },
 ) {
   const { month, search, page, limit } = opts;
 
-  const where: Prisma.PurchaseWhereInput = { userId };
+  const where: Prisma.PurchaseWhereInput = userRole === Role.ADMIN ? {} : { userId };
 
-  if (month) {
-    const [year, mon] = month.split("-").map(Number);
-    const from = new Date(year, mon - 1, 1);
-    const to = new Date(year, mon, 1);
-    where.date = { gte: from, lt: to };
-  }
+  const dateRange = buildDateRange(undefined, month);
+  if (dateRange) where.date = dateRange;
 
   if (search) {
     where.OR = [
@@ -119,11 +127,11 @@ export async function listPurchases(
 
 // ─── Single ──────────────────────────────────────────────────────────────────
 
-export async function getPurchase(userId: number, purchaseId: number) {
-  const purchase = await prisma.purchase.findFirst({
-    where: { id: purchaseId, userId },
-    select: purchaseSelect,
-  });
+export async function getPurchase(userId: number, userRole: Role, purchaseId: number) {
+  const where = userRole === Role.ADMIN
+    ? { id: purchaseId }
+    : { id: purchaseId, userId };
+  const purchase = await prisma.purchase.findFirst({ where, select: purchaseSelect });
   if (!purchase) throw new AppError("ক্রয় পাওয়া যায়নি", 404);
   return purchase;
 }
@@ -155,17 +163,24 @@ export async function createPurchase(
 
 export async function updatePurchase(
   userId: number,
+  userRole: Role,
   purchaseId: number,
   data: { date?: string; note?: string | null; shopId?: number | null; items?: ItemInput[] },
 ) {
-  const existing = await prisma.purchase.findFirst({ where: { id: purchaseId, userId } });
+  const where = userRole === Role.ADMIN
+    ? { id: purchaseId }
+    : { id: purchaseId, userId };
+  const existing = await prisma.purchase.findFirst({ where });
   if (!existing) throw new AppError("ক্রয় পাওয়া যায়নি", 404);
+
+  // Validate shop/product against the purchase owner's access, not the editor's.
+  const ownerUserId = existing.userId;
 
   if (data.items !== undefined) {
     validateItems(data.items);
-    await validateProductAccess(userId, data.items.map((i) => i.productId));
+    await validateProductAccess(ownerUserId, data.items.map((i) => i.productId));
   }
-  if (data.shopId) await validateShopAccess(userId, data.shopId);
+  if (data.shopId) await validateShopAccess(ownerUserId, data.shopId);
 
   const totalAmount = data.items !== undefined ? calcTotal(data.items) : existing.totalAmount;
 
@@ -190,8 +205,11 @@ export async function updatePurchase(
 
 // ─── Delete ──────────────────────────────────────────────────────────────────
 
-export async function deletePurchase(userId: number, purchaseId: number) {
-  const existing = await prisma.purchase.findFirst({ where: { id: purchaseId, userId } });
+export async function deletePurchase(userId: number, userRole: Role, purchaseId: number) {
+  const where = userRole === Role.ADMIN
+    ? { id: purchaseId }
+    : { id: purchaseId, userId };
+  const existing = await prisma.purchase.findFirst({ where });
   if (!existing) throw new AppError("ক্রয় পাওয়া যায়নি", 404);
 
   // PurchaseItem has onDelete: Cascade on purchaseId — items are deleted automatically.
@@ -200,13 +218,15 @@ export async function deletePurchase(userId: number, purchaseId: number) {
 
 // ─── Summary Report ──────────────────────────────────────────────────────────
 
-export async function getSummary(userId: number, year?: number) {
+export async function getSummary(userId: number, userRole: Role, year?: number) {
   const targetYear = year ?? new Date().getFullYear();
-  const from = new Date(targetYear, 0, 1);
-  const to = new Date(targetYear + 1, 0, 1);
+  const dateRange = buildDateRange(targetYear)!;
 
   const purchases = await prisma.purchase.findMany({
-    where: { userId, date: { gte: from, lt: to } },
+    where: {
+      ...(userRole !== Role.ADMIN && { userId }),
+      date: dateRange,
+    },
     select: { date: true, totalAmount: true },
     orderBy: { date: "asc" },
   });
@@ -221,7 +241,7 @@ export async function getSummary(userId: number, year?: number) {
 
   return {
     year: targetYear,
-    totalAmount: purchases.reduce((s: number, p: { totalAmount: number }) => s + p.totalAmount, 0),
+    totalAmount: purchases.reduce((s, p) => s + p.totalAmount, 0),
     months: Object.values(monthly),
   };
 }
@@ -230,21 +250,20 @@ export async function getSummary(userId: number, year?: number) {
 
 export async function getTopProducts(
   userId: number,
+  userRole: Role,
   opts: { year?: number; month?: string; limit?: number },
 ) {
   const { year, month, limit = 10 } = opts;
-
-  let dateRange: { gte: Date; lt: Date } | undefined;
-  if (month) {
-    const [y, m] = month.split("-").map(Number);
-    dateRange = { gte: new Date(y, m - 1, 1), lt: new Date(y, m, 1) };
-  } else if (year) {
-    dateRange = { gte: new Date(year, 0, 1), lt: new Date(year + 1, 0, 1) };
-  }
+  const dateRange = buildDateRange(year, month);
 
   const grouped = await prisma.purchaseItem.groupBy({
     by: ["productId"],
-    where: { purchase: { userId, ...(dateRange && { date: dateRange }) } },
+    where: {
+      purchase: {
+        ...(userRole !== Role.ADMIN && { userId }),
+        ...(dateRange && { date: dateRange }),
+      },
+    },
     _sum: { totalPrice: true, quantity: true },
     _count: { id: true },
     orderBy: { _sum: { totalPrice: "desc" } },
@@ -271,22 +290,27 @@ export async function getTopProducts(
 
 // ─── Price Trend ─────────────────────────────────────────────────────────────
 
-export async function getPriceTrend(userId: number, productId: number) {
+export async function getPriceTrend(userId: number, userRole: Role, productId: number) {
   const product = await prisma.product.findFirst({
-    where: { id: productId, OR: [{ type: "SYSTEM" }, { userId }] },
+    where: userRole === Role.ADMIN
+      ? { id: productId }
+      : { id: productId, OR: [{ type: EntityType.SYSTEM }, { userId }] },
     select: { id: true, name: true, unit: { select: { name: true } } },
   });
   if (!product) throw new AppError("পণ্য পাওয়া যায়নি", 404);
 
   const items = await prisma.purchaseItem.findMany({
-    where: { productId, purchase: { userId } },
+    where: {
+      productId,
+      purchase: userRole === Role.ADMIN ? {} : { userId },
+    },
     select: { pricePerUnit: true, purchase: { select: { date: true } } },
     orderBy: { purchase: { date: "asc" } },
   });
 
   return {
     product,
-    trend: items.map((item: { pricePerUnit: number; purchase: { date: Date } }) => ({
+    trend: items.map((item) => ({
       date: item.purchase.date,
       pricePerUnit: item.pricePerUnit,
     })),
@@ -297,23 +321,16 @@ export async function getPriceTrend(userId: number, productId: number) {
 
 export async function getShopReport(
   userId: number,
+  userRole: Role,
   opts: { year?: number; month?: string },
 ) {
   const { year, month } = opts;
+  const dateRange = buildDateRange(year, month);
 
-  let dateRange: { gte: Date; lt: Date } | undefined;
-  if (month) {
-    const [y, m] = month.split("-").map(Number);
-    dateRange = { gte: new Date(y, m - 1, 1), lt: new Date(y, m, 1) };
-  } else if (year) {
-    dateRange = { gte: new Date(year, 0, 1), lt: new Date(year + 1, 0, 1) };
-  }
-
-  // DB-তেই group + sum — JS memory-তে সব row টানা হয় না
   const grouped = await prisma.purchase.groupBy({
     by: ["shopId"],
     where: {
-      userId,
+      ...(userRole !== Role.ADMIN && { userId }),
       shopId: { not: null },
       ...(dateRange && { date: dateRange }),
     },
@@ -343,15 +360,20 @@ export async function getShopReport(
 
 // ─── Product By Shop ─────────────────────────────────────────────────────────
 
-export async function getProductByShop(userId: number, productId: number) {
+export async function getProductByShop(userId: number, userRole: Role, productId: number) {
   const product = await prisma.product.findFirst({
-    where: { id: productId, OR: [{ type: "SYSTEM" }, { userId }] },
+    where: userRole === Role.ADMIN
+      ? { id: productId }
+      : { id: productId, OR: [{ type: EntityType.SYSTEM }, { userId }] },
     select: { id: true, name: true, unit: { select: { name: true } } },
   });
   if (!product) throw new AppError("পণ্য পাওয়া যায়নি", 404);
 
   const items = await prisma.purchaseItem.findMany({
-    where: { productId, purchase: { userId } },
+    where: {
+      productId,
+      purchase: userRole === Role.ADMIN ? {} : { userId },
+    },
     select: {
       pricePerUnit: true,
       purchase: { select: { date: true, shopId: true, shop: { select: { id: true, name: true } } } },

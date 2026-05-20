@@ -12,7 +12,7 @@ import type { CreateShopInput, UpdateShopInput } from "./shops.schema";
 
 export async function getShops(req: AuthRequest, res: Response, next: NextFunction) {
   try {
-    const shops = await listShops(req.userId!);
+    const shops = await listShops(req.userId!, req.userRole ?? Role.USER);
     res.json({ success: true, shops });
   } catch (err) {
     next(err);
@@ -21,8 +21,8 @@ export async function getShops(req: AuthRequest, res: Response, next: NextFuncti
 
 export async function createShop(req: AuthRequest, res: Response, next: NextFunction) {
   try {
-    const { name, address, type } = req.body as CreateShopInput;
-    const shop = await svcCreate(req.userId!, req.userRole ?? Role.USER, { name, address, type });
+    const { name, address } = req.body as CreateShopInput;
+    const shop = await svcCreate(req.userId!, req.userRole ?? Role.USER, { name, address });
     res.status(201).json({ success: true, shop });
   } catch (err) {
     next(err);

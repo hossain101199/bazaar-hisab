@@ -1,3 +1,4 @@
+import { Role } from "@prisma/client";
 import bcrypt from "bcrypt";
 import cookieParser from "cookie-parser";
 import cors from "cors";
@@ -87,7 +88,7 @@ async function bootstrapAdmin() {
   const rounds = parseInt(process.env.BCRYPT_ROUNDS || "10");
   const hashed = await bcrypt.hash(password, rounds);
   const admin = await prisma.user.create({
-    data: { name, email, password: hashed, role: "ADMIN" },
+    data: { name, email, password: hashed, role: Role.ADMIN },
   });
   console.log(`✓ Admin তৈরি হয়েছে — id: ${admin.id}, email: ${admin.email}`);
 }

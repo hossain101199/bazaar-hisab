@@ -16,7 +16,6 @@ export const unitsService = {
 
   create: async (data: {
     name: string;
-    type: string;
     groupKey?: string | null;
     baseRatio?: number | null;
   }): Promise<Unit> => {

@@ -3,51 +3,34 @@ import { NextFunction, Response } from "express";
 import { AuthRequest } from "../../middleware/auth.middleware";
 import { parsePositiveInt } from "../../utils/parseId";
 import {
-  convertUnits,
   listUnits,
   createUnit as svcCreate,
-  deleteUnit as svcDelete,
   updateUnit as svcUpdate,
+  deleteUnit as svcDelete,
+  convertUnits,
 } from "./units.service";
 import type { CreateUnitInput, UpdateUnitInput } from "./units.schema";
 
-export async function getUnits(
-  req: AuthRequest,
-  res: Response,
-  next: NextFunction,
-) {
+export async function getUnits(req: AuthRequest, res: Response, next: NextFunction) {
   try {
-    const units = await listUnits(req.userId!);
+    const units = await listUnits(req.userId!, req.userRole ?? Role.USER);
     res.json({ success: true, units });
   } catch (err) {
     next(err);
   }
 }
 
-export async function createUnit(
-  req: AuthRequest,
-  res: Response,
-  next: NextFunction,
-) {
+export async function createUnit(req: AuthRequest, res: Response, next: NextFunction) {
   try {
-    const { name, type, groupKey, baseRatio } = req.body as CreateUnitInput;
-    const unit = await svcCreate(req.userId!, req.userRole ?? "USER", {
-      name,
-      type,
-      groupKey,
-      baseRatio,
-    });
+    const { name, groupKey, baseRatio } = req.body as CreateUnitInput;
+    const unit = await svcCreate(req.userId!, req.userRole ?? Role.USER, { name, groupKey, baseRatio });
     res.status(201).json({ success: true, unit });
   } catch (err) {
     next(err);
   }
 }
 
-export async function updateUnit(
-  req: AuthRequest,
-  res: Response,
-  next: NextFunction,
-) {
+export async function updateUnit(req: AuthRequest, res: Response, next: NextFunction) {
   try {
     const id = parsePositiveInt(req.params.id);
     if (!id) {
@@ -62,11 +45,7 @@ export async function updateUnit(
   }
 }
 
-export async function deleteUnit(
-  req: AuthRequest,
-  res: Response,
-  next: NextFunction,
-) {
+export async function deleteUnit(req: AuthRequest, res: Response, next: NextFunction) {
   try {
     const id = parsePositiveInt(req.params.id);
     if (!id) {
@@ -80,23 +59,16 @@ export async function deleteUnit(
   }
 }
 
-export async function convertUnit(
-  req: AuthRequest,
-  res: Response,
-  next: NextFunction,
-) {
+export async function convertUnit(req: AuthRequest, res: Response, next: NextFunction) {
   try {
     const fromId = parsePositiveInt(req.query.from as string);
     const toId = parsePositiveInt(req.query.to as string);
     const value = parseFloat(req.query.value as string);
     if (!fromId || !toId || isNaN(value)) {
-      res.status(400).json({
-        success: false,
-        message: "?from=<id>&to=<id>&value=<number> দিন",
-      });
+      res.status(400).json({ success: false, message: "?from=<id>&to=<id>&value=<number> দিন" });
       return;
     }
-    const result = await convertUnits(fromId, toId, value);
+    const result = await convertUnits(fromId, toId, value, req.userId!, req.userRole ?? Role.USER);
     res.json({ success: true, ...result });
   } catch (err) {
     next(err);

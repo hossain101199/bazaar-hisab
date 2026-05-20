@@ -9,6 +9,7 @@ import { formatCurrency } from '@/lib/utils'
 import { ChartTooltip } from '@/components/ui/chart-tooltip'
 import { useChartColor } from '@/hooks/useChartColor'
 import { useQuery } from '@tanstack/react-query'
+import { selectIsAdmin, useAuthStore } from '@/store/auth.store'
 import { useState } from 'react'
 import {
   Bar, BarChart, CartesianGrid, Line, LineChart,
@@ -117,6 +118,7 @@ export default function ReportPage() {
   const currentYear = new Date().getFullYear()
   const [year, setYear] = useState(currentYear)
   const chartColor = useChartColor()
+  const isAdmin = useAuthStore(selectIsAdmin)
 
   const { data: summary, isLoading, isError, refetch } = useQuery<SummaryReport>({
     queryKey: ['summary', year],
@@ -132,7 +134,10 @@ export default function ReportPage() {
   return (
     <div className="p-4 md:p-6 space-y-5 max-w-2xl mx-auto">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">বার্ষিক রিপোর্ট</h1>
+        <div>
+          <h1 className="text-xl font-bold">বার্ষিক রিপোর্ট</h1>
+          {isAdmin && <p className="text-xs text-muted-foreground mt-0.5">সকল ব্যবহারকারীর রিপোর্ট</p>}
+        </div>
         <div className="flex items-center gap-1 bg-muted rounded-lg px-1 py-0.5">
           <button
             onClick={() => setYear(y => y - 1)}

@@ -6,6 +6,14 @@ import { AppError } from '../../utils/AppError'
 
 const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000
 
+const userSelect = {
+  id: true,
+  name: true,
+  email: true,
+  role: true,
+  createdAt: true,
+} as const
+
 function generateAccessToken(userId: number, role: string): string {
   return jwt.sign({ userId, role }, process.env.JWT_SECRET!, { expiresIn: '15m' })
 }
@@ -25,11 +33,10 @@ export async function registerUser(name: string, email: string, password: string
   const rounds = parseInt(process.env.BCRYPT_ROUNDS || '10')
   const hashed = await bcrypt.hash(password, rounds)
 
-  const user = await prisma.user.create({
-    data: { name, email: normalized, password: hashed, role: 'USER' },
-    select: { id: true, name: true, email: true, role: true, createdAt: true },
+  return prisma.user.create({
+    data: { name, email: normalized, password: hashed },
+    select: userSelect,
   })
-  return user
 }
 
 export async function loginUser(email: string, password: string) {
@@ -52,7 +59,7 @@ export async function loginUser(email: string, password: string) {
 export async function rotateRefreshToken(token: string) {
   const stored = await prisma.refreshToken.findUnique({
     where: { token },
-    include: { user: { select: { id: true, name: true, email: true, role: true, createdAt: true } } },
+    include: { user: { select: userSelect } },
   })
 
   if (!stored || stored.expiresAt < new Date()) {
@@ -60,7 +67,6 @@ export async function rotateRefreshToken(token: string) {
     throw new AppError('টোকেন অবৈধ বা মেয়াদ শেষ', 401)
   }
 
-  // Generate new token value before the transaction so the whole rotation is atomic.
   const newTokenValue = crypto.randomBytes(64).toString('hex')
   const newExpiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_MS)
 
@@ -74,10 +80,11 @@ export async function rotateRefreshToken(token: string) {
     }),
   ])
 
-  const newRefreshToken = newTokenValue
-  const accessToken = generateAccessToken(stored.userId, stored.user.role)
-
-  return { accessToken, refreshToken: newRefreshToken, user: stored.user }
+  return {
+    accessToken: generateAccessToken(stored.userId, stored.user.role),
+    refreshToken: newTokenValue,
+    user: stored.user,
+  }
 }
 
 export async function revokeRefreshToken(token: string) {
@@ -85,10 +92,7 @@ export async function revokeRefreshToken(token: string) {
 }
 
 export async function getMe(userId: number) {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { id: true, name: true, email: true, role: true, createdAt: true },
-  })
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: userSelect })
   if (!user) throw new AppError('ব্যবহারকারী পাওয়া যায়নি', 404)
   return user
 }

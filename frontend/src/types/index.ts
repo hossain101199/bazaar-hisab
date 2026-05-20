@@ -1,7 +1,5 @@
 export type Role = 'ADMIN' | 'USER'
-export type UnitType = 'SYSTEM' | 'USER'
-export type ProductType = 'SYSTEM' | 'USER'
-export type ShopType = 'SYSTEM' | 'USER'
+export type EntityType = 'SYSTEM' | 'USER'
 
 export interface User {
   id: number
@@ -14,7 +12,7 @@ export interface User {
 export interface Unit {
   id: number
   name: string
-  type: UnitType
+  type: EntityType
   groupKey: string | null
   baseRatio: number | null
   userId: number | null
@@ -28,7 +26,7 @@ export interface ProductUnit {
 export interface Product {
   id: number
   name: string
-  type: ProductType
+  type: EntityType
   userId: number | null
   unitId: number
   unit: ProductUnit
@@ -39,7 +37,6 @@ export interface Shop {
   id: number
   name: string
   address: string | null
-  type: ShopType
   userId: number | null
 }
 

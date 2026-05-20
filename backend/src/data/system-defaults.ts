@@ -1,13 +1,15 @@
+import { EntityType } from '@prisma/client'
+
 export const SYSTEM_UNITS = [
-  { name: 'কেজি',       type: 'SYSTEM', groupKey: 'weight', baseRatio: 1 },
-  { name: 'গ্রাম',      type: 'SYSTEM', groupKey: 'weight', baseRatio: 0.001 },
-  { name: 'লিটার',      type: 'SYSTEM', groupKey: 'volume', baseRatio: 1 },
-  { name: 'মিলিলিটার', type: 'SYSTEM', groupKey: 'volume', baseRatio: 0.001 },
-  { name: 'পিস',        type: 'SYSTEM', groupKey: 'count',  baseRatio: 1 },
-  { name: 'হালি',       type: 'SYSTEM', groupKey: 'count',  baseRatio: 4 },
-  { name: 'ডজন',        type: 'SYSTEM', groupKey: 'count',  baseRatio: 12 },
-  { name: 'আঁটি',       type: 'SYSTEM', groupKey: null,     baseRatio: null },
-] as const
+  { name: 'কেজি',       type: EntityType.SYSTEM, groupKey: 'weight', baseRatio: 1 },
+  { name: 'গ্রাম',      type: EntityType.SYSTEM, groupKey: 'weight', baseRatio: 0.001 },
+  { name: 'লিটার',      type: EntityType.SYSTEM, groupKey: 'volume', baseRatio: 1 },
+  { name: 'মিলিলিটার', type: EntityType.SYSTEM, groupKey: 'volume', baseRatio: 0.001 },
+  { name: 'পিস',        type: EntityType.SYSTEM, groupKey: 'count',  baseRatio: 1 },
+  { name: 'হালি',       type: EntityType.SYSTEM, groupKey: 'count',  baseRatio: 4 },
+  { name: 'ডজন',        type: EntityType.SYSTEM, groupKey: 'count',  baseRatio: 12 },
+  { name: 'আঁটি',       type: EntityType.SYSTEM, groupKey: null,     baseRatio: null },
+]
 
 // unitName এখানে SYSTEM_UNITS এর name এর সাথে মিলবে
 export const SYSTEM_PRODUCTS: { name: string; unitName: string }[] = [

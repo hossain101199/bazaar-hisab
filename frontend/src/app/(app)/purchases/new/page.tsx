@@ -4,14 +4,27 @@ import { ErrorState } from '@/components/ui/error-state'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PurchaseForm } from '@/components/purchases/PurchaseForm'
 import { productsService } from '@/services/products.service'
+import { selectIsAdmin, useAuthStore } from '@/store/auth.store'
 import type { Product } from '@/types'
 import { useQuery } from '@tanstack/react-query'
+import { useRouter } from 'next/navigation'
+import { useEffect } from 'react'
 
 export default function NewPurchasePage() {
+  const isAdmin = useAuthStore(selectIsAdmin)
+  const router = useRouter()
+
+  useEffect(() => {
+    if (isAdmin) router.replace('/purchases')
+  }, [isAdmin, router])
+
   const { data: products = [], isLoading, isError, refetch } = useQuery<Product[]>({
     queryKey: ['products'],
     queryFn: () => productsService.list(),
+    enabled: !isAdmin,
   })
+
+  if (isAdmin) return null
 
   if (isLoading) {
     return (

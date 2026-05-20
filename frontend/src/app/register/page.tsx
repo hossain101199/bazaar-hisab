@@ -64,6 +64,7 @@ export default function RegisterPage() {
         autoComplete={autoComplete}
         autoFocus={autoFocus}
         {...formik.getFieldProps(id)}
+          className={formik.touched[id] && formik.errors[id] ? "border-destructive focus-visible:ring-destructive/30" : ""}
       />
       {formik.touched[id] && formik.errors[id] && (
         <p className="text-destructive text-xs">{formik.errors[id]}</p>

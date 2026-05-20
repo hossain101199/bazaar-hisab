@@ -143,7 +143,7 @@ export default function ProductsPage() {
       {!loading && !hasError && (
         <Card>
           <CardContent className="px-4 py-1">
-            <p className="text-xs font-semibold text-muted-foreground py-2">আমার পণ্য</p>
+            <p className="text-xs font-semibold text-muted-foreground py-2">{isAdmin ? "ব্যবহারকারীদের পণ্য" : "আমার পণ্য"}</p>
             {userProducts.length === 0 ? (
               <EmptyState
                 icon={Package}

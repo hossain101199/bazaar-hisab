@@ -1,69 +1,51 @@
-import { Role } from '@prisma/client'
+import { EntityType, Role } from '@prisma/client'
 import prisma from '../../prisma'
 import { AppError } from '../../utils/AppError'
+import { accessFilter, assertCanMutate, Ownership } from '../../utils/entityAccess'
 import { convert } from '../../utils/unitConverter'
 
-type UnitOwnership = { type: string; userId: number | null }
+// ─── List ────────────────────────────────────────────────────────────────────
 
-function assertUserOwnsUnit(
-  unit: UnitOwnership,
-  userId: number,
-  userRole: Role,
-  action: 'পরিবর্তন' | 'মুছে ফেলা',
-) {
-  if (unit.type === 'SYSTEM') {
-    if (userRole !== Role.ADMIN) throw new AppError(`SYSTEM একক ${action} করা যাবে না`, 403)
-    return
-  }
-  if (unit.userId !== userId) {
-    throw new AppError(`এই একক ${action}ের অনুমতি নেই`, 403)
-  }
-}
-
-export async function listUnits(userId: number) {
+export async function listUnits(userId: number, userRole: Role) {
   return prisma.unit.findMany({
-    where: { OR: [{ type: 'SYSTEM' }, { type: 'USER', userId }] },
+    where: accessFilter(userId, userRole),
     orderBy: [{ type: 'asc' }, { name: 'asc' }],
   })
 }
 
+// ─── Create ──────────────────────────────────────────────────────────────────
+
 export async function createUnit(
   userId: number,
   userRole: Role,
-  data: { name: string; type?: string; groupKey?: string | null; baseRatio?: number | null },
+  data: { name: string; groupKey?: string | null; baseRatio?: number | null },
 ) {
-  const isSystem = data.type === 'SYSTEM'
-  if (isSystem && userRole !== Role.ADMIN) {
-    throw new AppError('শুধুমাত্র Admin SYSTEM একক তৈরি করতে পারবেন', 403)
-  }
+  const isSystem = userRole === Role.ADMIN
 
   const trimmedName = data.name.trim()
   if (!trimmedName) throw new AppError('এককের নাম দিন', 400)
 
-  // Check uniqueness within the scope visible to this user:
-  // - SYSTEM creation: no other SYSTEM unit with the same name
-  // - USER creation: no SYSTEM unit and no own USER unit with the same name
+  const conflictScope = isSystem
+    ? { type: EntityType.SYSTEM }
+    : { OR: [{ type: EntityType.SYSTEM }, { userId }] }
+
   const conflict = await prisma.unit.findFirst({
-    where: {
-      name: { equals: trimmedName, mode: 'insensitive' },
-      ...(isSystem
-        ? { type: 'SYSTEM' }
-        : { OR: [{ type: 'SYSTEM' }, { userId }] }
-      ),
-    },
+    where: { name: { equals: trimmedName, mode: 'insensitive' }, ...conflictScope },
   })
   if (conflict) throw new AppError('এই নামে একটি একক ইতিমধ্যে আছে', 409)
 
   return prisma.unit.create({
     data: {
       name: trimmedName,
-      type: isSystem ? 'SYSTEM' : 'USER',
+      type: isSystem ? EntityType.SYSTEM : EntityType.USER,
       groupKey: data.groupKey ?? null,
       baseRatio: data.baseRatio ?? null,
       userId: isSystem ? null : userId,
     },
   })
 }
+
+// ─── Update ──────────────────────────────────────────────────────────────────
 
 export async function updateUnit(
   userId: number,
@@ -73,21 +55,21 @@ export async function updateUnit(
 ) {
   const unit = await prisma.unit.findUnique({ where: { id: unitId } })
   if (!unit) throw new AppError('একক পাওয়া যায়নি', 404)
-  assertUserOwnsUnit(unit, userId, userRole, 'পরিবর্তন')
+  assertCanMutate(unit as Ownership, userId, userRole, 'একক', 'পরিবর্তন')
 
   if (data.name !== undefined) {
     const trimmedName = data.name.trim()
     if (!trimmedName) throw new AppError('এককের নাম দিন', 400)
 
-    // Admin editing SYSTEM: check only against other SYSTEM units
-    // User editing own USER unit: check against SYSTEM + own USER units
+    const conflictScope =
+      unit.type === EntityType.SYSTEM
+        ? { type: EntityType.SYSTEM }
+        : { OR: [{ type: EntityType.SYSTEM }, { userId: unit.userId }] }
+
     const conflict = await prisma.unit.findFirst({
       where: {
         name: { equals: trimmedName, mode: 'insensitive' },
-        ...(unit.type === 'SYSTEM'
-          ? { type: 'SYSTEM' }
-          : { OR: [{ type: 'SYSTEM' }, { userId }] }
-        ),
+        ...conflictScope,
         NOT: { id: unitId },
       },
     })
@@ -104,23 +86,34 @@ export async function updateUnit(
   })
 }
 
+// ─── Delete ──────────────────────────────────────────────────────────────────
+
 export async function deleteUnit(userId: number, userRole: Role, unitId: number) {
   const unit = await prisma.unit.findUnique({ where: { id: unitId } })
   if (!unit) throw new AppError('একক পাওয়া যায়নি', 404)
-  assertUserOwnsUnit(unit, userId, userRole, 'মুছে ফেলা')
+  assertCanMutate(unit as Ownership, userId, userRole, 'একক', 'মুছে ফেলা')
 
-  const usedByProduct = await prisma.product.findFirst({ where: { unitId } })
-  if (usedByProduct) {
+  const inUse = await prisma.product.findFirst({ where: { unitId } })
+  if (inUse) {
     throw new AppError('এই এককটি পণ্যে ব্যবহৃত হয়েছে, মুছে ফেলা যাবে না', 409)
   }
 
   await prisma.unit.delete({ where: { id: unitId } })
 }
 
-export async function convertUnits(fromId: number, toId: number, value: number) {
+// ─── Convert ─────────────────────────────────────────────────────────────────
+
+export async function convertUnits(
+  fromId: number,
+  toId: number,
+  value: number,
+  userId: number,
+  userRole: Role,
+) {
+  const filter = accessFilter(userId, userRole)
   const [fromUnit, toUnit] = await Promise.all([
-    prisma.unit.findUnique({ where: { id: fromId } }),
-    prisma.unit.findUnique({ where: { id: toId } }),
+    prisma.unit.findFirst({ where: { id: fromId, ...filter } }),
+    prisma.unit.findFirst({ where: { id: toId, ...filter } }),
   ])
   if (!fromUnit) throw new AppError('from একক পাওয়া যায়নি', 404)
   if (!toUnit) throw new AppError('to একক পাওয়া যায়নি', 404)

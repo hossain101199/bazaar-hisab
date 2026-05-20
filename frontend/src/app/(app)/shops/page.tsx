@@ -1,6 +1,5 @@
 'use client'
 
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -19,23 +18,15 @@ import { toast } from 'sonner'
 
 interface ShopRowProps {
   s: Shop
-  isAdmin: boolean
   onEdit: (s: Shop) => void
   onDelete: (s: Shop) => void
 }
 
-function ShopRow({ s, isAdmin, onEdit, onDelete }: ShopRowProps) {
-  const canEdit = s.type === 'USER' || isAdmin
-
+function ShopRow({ s, onEdit, onDelete }: ShopRowProps) {
   return (
     <div className="flex items-center gap-3 py-3 border-b last:border-0">
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-medium text-sm">{s.name}</span>
-          {s.type === 'SYSTEM' && (
-            <Badge variant="secondary" className="text-xs px-1.5 py-0">সিস্টেম</Badge>
-          )}
-        </div>
+        <span className="font-medium text-sm">{s.name}</span>
         {s.address && (
           <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
             <MapPin className="h-3 w-3 shrink-0" />
@@ -43,28 +34,26 @@ function ShopRow({ s, isAdmin, onEdit, onDelete }: ShopRowProps) {
           </p>
         )}
       </div>
-      {canEdit && (
-        <div className="flex gap-1 shrink-0">
-          <Button
-            size="icon"
-            variant="ghost"
-            className="h-8 w-8"
-            aria-label={`"${s.name}" সম্পাদনা করুন`}
-            onClick={() => onEdit(s)}
-          >
-            <Pencil className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            size="icon"
-            variant="ghost"
-            className="h-8 w-8 text-destructive hover:text-destructive"
-            aria-label={`"${s.name}" মুছুন`}
-            onClick={() => onDelete(s)}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-      )}
+      <div className="flex gap-1 shrink-0">
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-8 w-8"
+          aria-label={`"${s.name}" সম্পাদনা করুন`}
+          onClick={() => onEdit(s)}
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-8 w-8 text-destructive hover:text-destructive"
+          aria-label={`"${s.name}" মুছুন`}
+          onClick={() => onDelete(s)}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+      </div>
     </div>
   )
 }
@@ -93,7 +82,6 @@ export default function ShopsPage() {
     },
   })
 
-  const openAdd = () => { setEditTarget(null); setDialogOpen(true) }
   const openEdit = (s: Shop) => { setEditTarget(s); setDialogOpen(true) }
 
   const handleDelete = () => {
@@ -102,16 +90,15 @@ export default function ShopsPage() {
     setDeleteTarget(null)
   }
 
-  const systemShops = shops.filter(s => s.type === 'SYSTEM')
-  const userShops = shops.filter(s => s.type === 'USER')
-
   return (
     <div className="p-4 md:p-6 space-y-4 max-w-2xl mx-auto">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold">দোকান তালিকা</h1>
-        <Button size="sm" onClick={openAdd}>
-          <Plus className="h-4 w-4 mr-1" /> নতুন দোকান
-        </Button>
+        {!isAdmin && (
+          <Button size="sm" onClick={() => { setEditTarget(null); setDialogOpen(true) }}>
+            <Plus className="h-4 w-4 mr-1" /> নতুন দোকান
+          </Button>
+        )}
       </div>
 
       {isLoading && (
@@ -128,31 +115,22 @@ export default function ShopsPage() {
         </Card>
       )}
 
-      {!isLoading && !isError && systemShops.length > 0 && (
-        <Card>
-          <CardContent className="px-4 py-1">
-            <p className="text-xs font-semibold text-muted-foreground py-2">সিস্টেম দোকান</p>
-            {systemShops.map(s => (
-              <ShopRow key={s.id} s={s} isAdmin={isAdmin} onEdit={openEdit} onDelete={setDeleteTarget} />
-            ))}
-          </CardContent>
-        </Card>
-      )}
-
       {!isLoading && !isError && (
         <Card>
           <CardContent className="px-4 py-1">
-            <p className="text-xs font-semibold text-muted-foreground py-2">আমার দোকান</p>
-            {userShops.length === 0 ? (
+            <p className="text-xs font-semibold text-muted-foreground py-2">
+              {isAdmin ? 'ব্যবহারকারীদের দোকান' : 'আমার দোকান'}
+            </p>
+            {shops.length === 0 ? (
               <EmptyState
                 icon={Store}
                 title="কোনো দোকান নেই"
-                description='"নতুন দোকান" বাটনে ক্লিক করে দোকান যোগ করুন'
+                description={isAdmin ? 'কোনো ব্যবহারকারী এখনো দোকান যোগ করেনি' : '"নতুন দোকান" বাটনে ক্লিক করে দোকান যোগ করুন'}
                 className="py-8"
               />
             ) : (
-              userShops.map(s => (
-                <ShopRow key={s.id} s={s} isAdmin={isAdmin} onEdit={openEdit} onDelete={setDeleteTarget} />
+              shops.map(s => (
+                <ShopRow key={s.id} s={s} onEdit={openEdit} onDelete={setDeleteTarget} />
               ))
             )}
           </CardContent>

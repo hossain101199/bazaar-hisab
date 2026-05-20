@@ -39,7 +39,7 @@ export const purchasesService = {
 
   update: async (
     id: number,
-    data: { date?: string; note?: string; shopId?: number | null; items?: ItemInput[] },
+    data: { date?: string; note?: string | null; shopId?: number | null; items?: ItemInput[] },
   ): Promise<Purchase> => {
     const response = await api.patch<{ purchase: Purchase }>(`/api/purchases/${id}`, data);
     if (!response.data.purchase || !validatePurchase(response.data.purchase)) {
