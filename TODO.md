@@ -1,11 +1,11 @@
-# বাজার হিসাব — ভবিষ্যৎ কাজের তালিকা
+# বাজার হিসাব - ভবিষ্যৎ কাজের তালিকা
 
 এই document এ সেই কাজগুলো লেখা আছে যা এখনো করা হয়নি।
 Security audit (2026-05-19) এর পরে যা সম্পন্ন হয়েছে তার উপর ভিত্তি করে তৈরি।
 
 ---
 
-## Authentication — Long Term
+## Authentication - Long Term
 
 ### 1. Refresh Token Reuse Detection (Token Family)
 
@@ -26,16 +26,16 @@ model RefreshToken {
 
 ---
 
-### 2. `/api/auth/sessions` — Device Management
+### 2. `/api/auth/sessions` - Device Management
 
 **সমস্যা:** User নিজে দেখতে পারে না কোন কোন device এ login আছে।
 
 **করণীয়:**
 
 - Login এর সময় device info save করো (user agent, IP)
-- `GET /api/auth/sessions` — active sessions list
-- `DELETE /api/auth/sessions/:id` — নির্দিষ্ট device logout
-- `DELETE /api/auth/sessions` — সব device logout (current ছাড়া)
+- `GET /api/auth/sessions` : active sessions list
+- `DELETE /api/auth/sessions/:id` : নির্দিষ্ট device logout
+- `DELETE /api/auth/sessions` : সব device logout (current ছাড়া)
 
 ```prisma
 model RefreshToken {
@@ -74,7 +74,7 @@ model AuditLog {
 
 **প্রয়োজন কখন:** একাধিক backend instance চালালে (horizontal scaling)।
 
-**এখন:** PostgreSQL এ refresh token store হচ্ছে — single server এ ঠিকঠাক।
+**এখন:** PostgreSQL এ refresh token store হচ্ছে। Single server এ ঠিকঠাক।
 
 **করণীয় (ভবিষ্যতে):**
 
@@ -84,7 +84,7 @@ model AuditLog {
 
 ---
 
-## Feature — যা চাইলে যোগ করা যায়
+## Feature - যা চাইলে যোগ করা যায়
 
 ### Email Verification
 
@@ -101,18 +101,18 @@ model AuditLog {
 - নাম পরিবর্তন
 - পাসওয়ার্ড পরিবর্তন (current password confirm করে)
 
-### Admin — User Role Management
+### Admin - User Role Management
 
 **সমস্যা:** Admin user list দেখতে পারেন, কিন্তু কোনো user কে ADMIN বানাতে বা সরাতে পারেন না।
 
 **করণীয়:**
-- `PATCH /api/admin/users/:id/role` — role পরিবর্তন endpoint
+- `PATCH /api/admin/users/:id/role` : role পরিবর্তন endpoint
 - Admin panel এ role toggle বা dropdown যোগ করো
 - নিজের role পরিবর্তন করা যাবে না (safety guard)
 
 ### Shop Address Clearing (UI)
 
-**সমস্যা:** Backend এ `address: null` পাঠালে ঠিকানা মুছে যায় (schema এ `.nullable()` আছে), কিন্তু `ShopDialog` empty string কে `undefined` হিসেবে পাঠায় — ফলে ঠিকানা একবার সেট করলে UI থেকে মুছানো যায় না।
+**সমস্যা:** Backend এ `address: null` পাঠালে ঠিকানা মুছে যায় (schema এ `.nullable()` আছে), কিন্তু `ShopDialog` empty string কে `undefined` হিসেবে পাঠায়। ফলে ঠিকানা একবার সেট করলে UI থেকে মুছানো যায় না।
 
 **করণীয়:**
 - `ShopDialog.tsx` এ onSubmit এ `address: values.address || null` পাঠাও (`undefined` নয়)
@@ -120,7 +120,7 @@ model AuditLog {
 
 ### Analysis Page Cache Invalidation
 
-**সমস্যা:** Analysis পেজের `['top-products']` এবং `['shop-report']` query, purchase তৈরি/সম্পাদনা/মুছে ফেলার পরে invalidate হয় না — window focus বা cache expiry পর্যন্ত stale থাকে।
+**সমস্যা:** Analysis পেজের `['top-products']` এবং `['shop-report']` query, purchase তৈরি/সম্পাদনা/মুছে ফেলার পরে invalidate হয় না। Window focus বা cache expiry পর্যন্ত stale থাকে।
 
 **করণীয়:**
 - `PurchaseForm.tsx` এ create/edit এর পরে এবং `[id]/page.tsx` এ delete এর পরে:
@@ -142,12 +142,6 @@ model AuditLog {
 - [ ] `NODE_ENV=production` set করো
 - [ ] HTTPS setup করো (Nginx/Caddy)
 - [ ] Database backup strategy ঠিক করো
-
-### Docker Production Config
-
-- [ ] `Dockerfile.dev` আলাদা `Dockerfile.prod` তৈরি করো
-- [ ] Multi-stage build use করো (smaller image)
-- [ ] Health check timeout adjust করো
 
 ---
 
