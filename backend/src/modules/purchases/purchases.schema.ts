@@ -9,7 +9,11 @@ const itemSchema = z.object({
 const dateField = z
   .string()
   .refine((d) => !isNaN(new Date(d).getTime()), "বৈধ date দিন (ISO 8601)")
-  .refine((d) => new Date(d) <= new Date(), "ভবিষ্যতের তারিখ দেওয়া যাবে না");
+  .refine((d) => {
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+    return new Date(d) <= today;
+  }, "ভবিষ্যতের তারিখ দেওয়া যাবে না");
 
 export const createPurchaseSchema = z.object({
   date: dateField,
